@@ -49,6 +49,8 @@ targets:
     sources:
       - BTRemoteTests
       - BTRemote/LowEnergy/HIDReports.swift
+      - BTRemote/EdgeGeometry.swift
+      - BTRemote/HandoffState.swift
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
