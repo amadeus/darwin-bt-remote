@@ -911,3 +911,9 @@ Nothing else is open; the rest is engineering.
   diagnostic exited. Use scripts/Test-BTRemoteConnection.ps1 as the verified
   manual workaround; automate recovery in M3. Peripheral state restoration did
   not fix normal quit and was reverted. See docs/BLUETOOTH-RECONNECT.md.
+- Mac-only reconnect follow-up: while the PC remained connected over Classic
+  AVRCP, native HID subscriber arrays were empty. A targeted Mac GATT connect
+  attempt reported Classic GATT unsupported and remained pending over BLE;
+  startup Service Changed and short-form HID advertising did not recover it.
+  Temporary probes were removed. Windows discovery remains the only verified
+  recovery, although these tests do not prove all Mac-only solutions impossible.

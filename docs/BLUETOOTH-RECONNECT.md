@@ -40,6 +40,44 @@ reported `persistence: on` but still removed the services and disconnected the
 host; relaunch did not call `willRestoreState`. That experiment was removed.
 The original input implementation builds and its ten tests pass.
 
+## Mac-only recovery tests with the existing connection
+
+Further live tests on 2026-09-13 preserved the existing pairing and the PC's
+Classic connection. No Windows discovery script or re-pair was requested
+during these tests.
+
+- `system_profiler` and `bluetoothd` identified MAINGEAR's connected services
+  as `AVRCP ACL`; the daemon reported both Classic and BLE pairing records.
+  This confirms that the general Connected status can remain true while the
+  BLE connection used by HID is absent.
+- A temporary signed build inspected each input characteristic's native
+  `CBMutableCharacteristic.subscribedCentrals` array. All were empty, matching
+  BTRemote's own tracking. This ruled out merely missing a subscription callback
+  in this session.
+- At 12:13:42 PDT, the build retrieved the known PC with
+  `CBCentralManager.retrievePeripherals(withIdentifiers:)` and called `connect`.
+  The daemon explicitly reported `Classic GATT service is not supported` for
+  this PC. It then attempted BLE instead; the peer remained `.connecting`
+  after thirty seconds, and the diagnostic canceled its pending request.
+  There were no HID reads or subscriptions.
+- A Service Changed cycle after publishing the services did not recover HID.
+- At 12:15:13 PDT, another build advertised the short `1812` UUID while keeping
+  the installed services and report format unchanged. The daemon confirmed
+  connectable advertising with `0x1812`; native subscribers remained empty
+  and Windows did not recover. The original 128-bit advertisement was restored.
+
+The macOS 26.5 SDK explicitly marks `registerForConnectionEvents` unavailable
+on macOS. The transport-bridging option also addresses the opposite direction:
+bringing up Classic profiles after an LE connection, rather than creating an
+LE HID connection from an existing Classic connection.
+
+These tests found no working Mac-only recovery through the examined public
+CoreBluetooth APIs. They do not prove that every possible Mac-side solution
+is impossible, nor do they reveal Windows' internal driver/cache state.
+The verified recovery remains Windows-initiated uncached service discovery.
+All temporary connection probes and advertising changes were removed; the
+HID implementation remains unchanged.
+
 ## Current workaround
 
 Keep BTRemote advertising on the Mac. Copy
@@ -64,9 +102,11 @@ vector as an unprojected COM object. Local syntax/selection/status regressions
 pass with `scripts/tests/Test-BTRemoteSelection.ps1` under portable PowerShell
 7.6.6 on macOS; the complete script has now also run successfully on Windows.
 
-## Planned automatic recovery
+## Automatic recovery recommendation
 
-Include reconnect/service rediscovery in M3's Windows companion. Retain the
+Given the tested results, include reconnect/service rediscovery in M3's Windows
+companion. This is the practical verified direction, rather than a proof that
+a companion is fundamentally required by Bluetooth. Retain the
 chosen paired BLE endpoint, request a connection when the Mac is available,
 and refresh services when needed. Microsoft's documented options include
 uncached discovery and `GattSession.MaintainConnection`. Validate ordinary Mac
@@ -78,3 +118,4 @@ References:
 - [Apple: restored peripheral services](https://developer.apple.com/documentation/corebluetooth/cbperipheralmanagerrestoredstateserviceskey)
 - [Microsoft: Bluetooth GATT client connection behavior](https://learn.microsoft.com/en-us/windows/apps/develop/devices-sensors/gatt-client)
 - [Microsoft: Bluetooth service cache](https://learn.microsoft.com/en-us/uwp/api/windows.devices.bluetooth.bluetoothcachemode)
+- [Apple: transport bridging direction](https://developer.apple.com/documentation/corebluetooth/cbconnectperipheraloptionenabletransportbridgingkey)
