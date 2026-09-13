@@ -859,3 +859,5 @@ Nothing else is open; the rest is engineering.
   existing conventions and HID code.
 - The requested stopping point is the M2 manual checkpoint; M0's manual PC
   regression check will be included there rather than interrupting implementation.
+
+- M0: Classic removed; kept L10n.ErrorMessage because HIDCentral still uses it.

@@ -99,6 +99,5 @@ struct ContentView: View {
             .environmentObject(HIDPeripheral())
             .environmentObject(HIDCentral())
             .environmentObject(DeviceNameStore())
-            .environmentObject(HIDClassicDevice())
     }
 #endif

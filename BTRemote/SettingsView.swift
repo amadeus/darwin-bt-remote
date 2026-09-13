@@ -104,6 +104,5 @@ struct SettingsView: View {
             .environmentObject(HIDPeripheral())
             .environmentObject(HIDCentral())
             .environmentObject(DeviceNameStore())
-            .environmentObject(HIDClassicDevice())
     }
 #endif

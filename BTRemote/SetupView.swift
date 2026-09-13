@@ -11,14 +11,8 @@ struct SetupView: View {
     @State private var selectedInfo: DeviceEntry?
     @State private var showBluetoothOff = false
     @EnvironmentObject private var directInput: DirectInputController
-    @EnvironmentObject private var classic: HIDClassicDevice
-    @AppStorage("BTRemote.macTransportMode") private var modeRaw: String = TransportMode.defaultMode.rawValue
 
     @Environment(\.hid) private var hid
-
-    private var classicMode: Bool {
-        (TransportMode(rawValue: modeRaw) ?? .defaultMode) == .classic
-    }
 
     var body: some View {
         NavigationStack {
@@ -37,15 +31,8 @@ struct SetupView: View {
     private var form: some View {
         Form {
             guideSection
-            transportModeSection
-            if classicMode {
-                pairedDevicesSection
-            } else {
-                connectionSection
-                if !lowEnergy.connectedCentrals.isEmpty {
-                    connectedDevicesSection
-                }
-            }
+            connectionSection
+            if !lowEnergy.connectedCentrals.isEmpty { connectedDevicesSection }
             statusSection
             if hid.isActive {
                 directInputSection
@@ -70,50 +57,22 @@ struct SetupView: View {
             NavigationLink { GuideView(transport: .lowEnergy) } label: {
                 Label(L10n.Setup.lowEnergyGuide, systemImage: "questionmark.circle")
             }
-            NavigationLink { GuideView(transport: .classic) } label: {
-                Label(L10n.Setup.classicGuide, systemImage: "questionmark.circle")
-            }
             Link(destination: AppSettings.instructionsURL) {
                 Label(L10n.Setup.videoInstructions, systemImage: "play.circle")
             }
         }
     }
 
-    private var transportModeSection: some View {
-        Section {
-            Text(classicMode ? L10n.TransportMode.classicCompatibility : L10n.TransportMode.lowEnergyCompatibility)
-                .font(.caption).foregroundColor(.secondary)
-            Picker(selection: $modeRaw) {
-                Text(L10n.TransportMode.lowEnergy).tag(TransportMode.lowEnergy.rawValue)
-                Text(L10n.TransportMode.classic).tag(TransportMode.classic.rawValue)
-            } label: {
-                Text(L10n.TransportMode.label)
-            }
-            .pickerStyle(.segmented)
-        } header: {
-            Text(L10n.TransportMode.section)
-        }
-    }
-
     private var statusSection: some View {
         Section(header: Text(L10n.Section.status)) {
-            if classicMode {
-                row(L10n.Status.bluetooth, Text(classic.state.localizedLabel))
-                row(L10n.Classic.ready, Text(classic.isReady ? L10n.Value.yes : L10n.Value.no))
-                if developerMode {
-                    row(L10n.Classic.sdpPublished, Text(classic.isSDPPublished ? L10n.Value.yes : L10n.Value.no))
-                    row(L10n.Status.hostLEDs, Text(verbatim: classic.keyboardLEDs.localizedLabel))
-                }
-            } else {
-                advertisedNameRow
-                row(L10n.Status.bluetooth, Text(lowEnergy.state.localizedLabel))
-                row(L10n.Status.advertising, Text(lowEnergy.isAdvertising ? L10n.Value.yes : L10n.Value.no))
-                if developerMode {
-                    row(L10n.Status.hidService, Text(lowEnergy.isHIDServiceAdded ? L10n.Status.hidServiceAdded : L10n.Value.none))
-                    row(L10n.Status.subscribedCentrals, Text(lowEnergy.subscribedCentrals.count, format: .number))
-                    row(L10n.Status.connectedPeripherals, Text(central.connected.count, format: .number))
-                    row(L10n.Status.hostLEDs, Text(verbatim: lowEnergy.keyboardLEDs.localizedLabel))
-                }
+            advertisedNameRow
+            row(L10n.Status.bluetooth, Text(lowEnergy.state.localizedLabel))
+            row(L10n.Status.advertising, Text(lowEnergy.isAdvertising ? L10n.Value.yes : L10n.Value.no))
+            if developerMode {
+                row(L10n.Status.hidService, Text(lowEnergy.isHIDServiceAdded ? L10n.Status.hidServiceAdded : L10n.Value.none))
+                row(L10n.Status.subscribedCentrals, Text(lowEnergy.subscribedCentrals.count, format: .number))
+                row(L10n.Status.connectedPeripherals, Text(central.connected.count, format: .number))
+                row(L10n.Status.hostLEDs, Text(verbatim: lowEnergy.keyboardLEDs.localizedLabel))
             }
         }
     }
@@ -229,61 +188,6 @@ struct SetupView: View {
         )
     }
 
-    private var pairedDevicesSection: some View {
-        Section(header: Text(L10n.Classic.pairedDevicesSection)) {
-            Text(L10n.Classic.pairFromSystemSettings)
-                .font(.caption).foregroundColor(.secondary)
-            Button {
-                _ = classic.presentPairingPicker()
-            } label: {
-                Label(L10n.Classic.pairNewDevice, systemImage: "plus.circle")
-            }
-            Button { classic.refreshPairedDevices() } label: {
-                Label(L10n.Classic.refresh, systemImage: "arrow.clockwise")
-            }
-            ForEach(classic.pairedDevices) { peer in
-                pairedDeviceRow(peer)
-            }
-            if classic.pairedDevices.isEmpty {
-                Text(L10n.Classic.noPairedDevices)
-                    .font(.caption).foregroundColor(.secondary)
-            }
-        }
-        .onAppear { classic.refreshPairedDevices() }
-    }
-
-    @ViewBuilder
-    private func pairedDeviceRow(_ peer: PairedDevice) -> some View {
-        let isLive = classic.connectedAddress == peer.id
-        HStack {
-            Button {
-                if isLive {
-                    classic.disconnect()
-                } else {
-                    classic.connect(to: peer)
-                }
-            } label: {
-                HStack {
-                    Image(systemName: isLive ? "link.circle.fill" : "link.circle")
-                        .foregroundColor(isLive ? .green : .accentColor)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(verbatim: peer.name).foregroundColor(.primary)
-                        Text(verbatim: peer.displayAddress)
-                            .font(.caption2).foregroundColor(.secondary).lineLimit(1)
-                    }
-                    Spacer()
-                    Text(isLive ? L10n.Classic.disconnect : L10n.Classic.connect)
-                        .font(.caption)
-                }
-            }
-            .buttonStyle(.plain)
-            Button(role: .destructive) { classic.forgetDevice(id: peer.id) } label: {
-                Image(systemName: "trash")
-            }
-            .buttonStyle(.borderless)
-        }
-    }
-
     private var directInputSection: some View {
         Section(header: Text(L10n.DirectInput.section), footer: Text(L10n.DirectInput.releaseHint)) {
             Toggle(isOn: directInputBinding) {
@@ -333,16 +237,6 @@ private extension CBManagerState {
     }
 }
 
-private extension HIDClassicDevice.ControllerState {
-    var localizedLabel: LocalizedStringKey {
-        switch self {
-        case .unknown: L10n.BluetoothState.unknown
-        case .poweredOff: L10n.BluetoothState.poweredOff
-        case .poweredOn: L10n.BluetoothState.poweredOn
-        }
-    }
-}
-
 private extension KeyboardLEDs {
     var localizedLabel: String {
         var parts: [String] = []
@@ -365,7 +259,6 @@ private extension KeyboardLEDs {
             .environmentObject(HIDPeripheral())
             .environmentObject(HIDCentral())
             .environmentObject(DeviceNameStore())
-            .environmentObject(HIDClassicDevice())
             .environmentObject(DirectInputController())
     }
 #endif

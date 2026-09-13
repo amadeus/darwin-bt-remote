@@ -3,7 +3,6 @@ import SwiftUI
 struct GuideView: View {
     enum Transport {
         case lowEnergy
-        case classic
     }
 
     let transport: Transport
@@ -26,12 +25,6 @@ struct GuideView: View {
                     step("1.circle", L10n.Setup.fromDeviceStep1)
                     step("2.circle", Text(verbatim: L10n.Setup.fromDeviceStep2(advertisedName)))
                     step("3.circle", L10n.Setup.fromDeviceStep3)
-                }
-            case .classic:
-                Section(footer: footer) {
-                    step("1.circle", L10n.Setup.classicStep1)
-                    step("2.circle", L10n.Setup.classicStep2)
-                    step("3.circle", L10n.Setup.classicStep3)
                 }
             }
         }
@@ -64,28 +57,24 @@ struct GuideView: View {
     private var title: LocalizedStringKey {
         switch transport {
         case .lowEnergy: L10n.Setup.lowEnergyGuide
-        case .classic: L10n.Setup.classicGuide
         }
     }
 
     private var about: LocalizedStringKey {
         switch transport {
-        case .lowEnergy: L10n.TransportMode.lowEnergyAbout
-        case .classic: L10n.TransportMode.classicAbout
+        case .lowEnergy: L10n.Guide.lowEnergyAbout
         }
     }
 
     private var compatibility: LocalizedStringKey {
         switch transport {
-        case .lowEnergy: L10n.TransportMode.lowEnergyCompatibility
-        case .classic: L10n.TransportMode.classicCompatibility
+        case .lowEnergy: L10n.Guide.lowEnergyCompatibility
         }
     }
 
     private var troubleshooting: LocalizedStringKey {
         switch transport {
         case .lowEnergy: L10n.Setup.troubleshooting
-        case .classic: L10n.Setup.classicTroubleshooting
         }
     }
 

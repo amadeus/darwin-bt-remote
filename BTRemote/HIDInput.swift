@@ -67,21 +67,6 @@ struct HIDInput {
 }
 
 extension HIDInput {
-    @MainActor
-    static func make(lowEnergy: HIDPeripheral, central: HIDCentral, classic: HIDClassicDevice, classicMode: Bool) -> HIDInput {
-        guard classicMode else { return _lowEnergy(lowEnergy, central) }
-        return HIDInput(
-            sendMouse: { classic.sendMouse($0) },
-            sendKeyboard: { classic.sendKeyboard($0) },
-            sendConsumer: { classic.sendConsumer($0) },
-            updateBattery: { classic.updateBatteryLevel($0) },
-            isActive: classic.isSDPPublished,
-            isConnected: classic.connectedAddress != nil,
-            activeError: classic.lastError,
-            batteryLevel: classic.batteryLevel
-        )
-    }
-
     static var unavailable: HIDInput {
         HIDInput(
             sendMouse: { _ in }, sendKeyboard: { _ in }, sendConsumer: { _ in }, updateBattery: { _ in },
@@ -90,7 +75,7 @@ extension HIDInput {
     }
 
     @MainActor
-    private static func _lowEnergy(_ lowEnergy: HIDPeripheral, _ central: HIDCentral) -> HIDInput {
+    static func make(lowEnergy: HIDPeripheral, central: HIDCentral) -> HIDInput {
         HIDInput(
             sendMouse: { lowEnergy.sendMouse($0) },
             sendKeyboard: { lowEnergy.sendKeyboard($0) },

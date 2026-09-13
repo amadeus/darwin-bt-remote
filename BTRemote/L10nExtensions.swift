@@ -69,26 +69,6 @@ extension L10n {
             "setup.le_guide"
         }
 
-        static var classicGuide: LocalizedStringKey {
-            "setup.classic_guide"
-        }
-
-        static var classicStep1: LocalizedStringKey {
-            "setup.classic_step1"
-        }
-
-        static var classicStep2: LocalizedStringKey {
-            "setup.classic_step2"
-        }
-
-        static var classicStep3: LocalizedStringKey {
-            "setup.classic_step3"
-        }
-
-        static var classicTroubleshooting: LocalizedStringKey {
-            "setup.classic_troubleshooting"
-        }
-
         static var connectFromThisApp: LocalizedStringKey {
             "setup.connect_from_this_app"
         }
@@ -232,10 +212,6 @@ extension L10n {
 
         static var sdpPublishFailed: String {
             String(localized: "error.sdp_publish_failed")
-        }
-
-        static var classicBondRequired: String {
-            String(localized: "error.classic_bond_required")
         }
 
         static func deviceNotPaired(_ name: String) -> String {
