@@ -60,7 +60,9 @@ paired Mac if that name is not unique/present. It prints cached and uncached
 service-discovery status and holds the device references for twenty seconds
 to allow checking edge switching. It does not pair, unpair, write reports or
 install anything. Its Windows Runtime calls cannot be executed on this Mac;
-Windows results and whether HID input recovers remain unverified.
+fresh-discovery results and whether HID input recovers remain unverified.
+Run it as the separate process shown above so process exit releases all its
+temporary native device/service handles.
 
 The first Windows run exposed a diagnostic bug: its WinRT collection printed
 all device names in row zero and passed multiple IDs to `FromIdAsync`. That
@@ -71,16 +73,26 @@ device. Async failures include the underlying message and HRESULT.
 
 The second Windows run failed when PowerShell bound `GetEnumerator` on the
 WinRT collection. A local fixture exposing a conflicting public overload
-reproduced the exact zero-argument method error. Collection copying now uses
-a compiled C# helper calling `IEnumerable` directly, for both devices and
-service lists. That same regression passes with the helper. Neither failed
+reproduced the exact zero-argument method error. Device collection copying now
+uses a compiled C# helper calling `IEnumerable` directly. That same regression
+passes with the helper. Neither failed
 Windows run reached a valid service-discovery result.
+
+The third run selected the correct Mac and reported `paired: True`,
+`Connection before discovery: Disconnected`, and `Cached discovery: Success`.
+It then failed converting the optional service vector (`System.__ComObject`)
+to `IEnumerable`, before uncached discovery. No Mac-side HID interaction was
+logged during that attempt. Service-vector enumeration has been removed from
+both reporting and cleanup: only discovery status, protocol errors, and
+connection state are needed for this test. This result confirms Windows has
+a saved BLE pairing, but does not yet validate a live encrypted connection.
 
 `scripts/tests/Test-BTRemoteSelection.ps1` checks the script syntax and the
 actual selection helper with an enumeration-only collection, including four
 separate devices, name selection, one device, and no devices. It passes under
 portable PowerShell 7.6.6 on macOS, including the conflicting-enumerator
-regression; the Windows PowerShell 5.1/WinRT retry is still required.
+regression and status reporting with a service-vector property that throws on
+access; the Windows PowerShell 5.1/WinRT retry is still required.
 
 References:
 

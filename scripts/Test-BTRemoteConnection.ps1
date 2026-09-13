@@ -1,6 +1,7 @@
 #Requires -Version 5.1
 <#
-Run in Windows PowerShell 5.1 with BTRemote advertising on the Mac.
+Run with powershell.exe -File in a separate Windows PowerShell 5.1 process,
+with BTRemote advertising on the Mac. Process exit releases its native handles.
 Select the existing paired Mac/BTRemote entry. This requests GATT discovery;
 it does not pair, unpair, write HID reports, or install anything.
 #>
@@ -47,14 +48,11 @@ function Wait-WinRT {
     }
 }
 
-function Show-Services {
+function Show-DiscoveryStatus {
     param([string] $Label, $Result)
     Write-Host "$Label discovery: $($Result.Status)"
     if ($null -ne $Result.ProtocolError) {
         Write-Host "ATT protocol error: $($Result.ProtocolError)"
-    }
-    foreach ($service in (ConvertTo-DeviceList $Result.Services)) {
-        Write-Host "  $($service.Uuid)"
     }
 }
 
@@ -125,22 +123,22 @@ try {
 
     $cached = Wait-WinRT ($device.GetGattServicesAsync([Windows.Devices.Bluetooth.BluetoothCacheMode]::Cached)) `
         ([Windows.Devices.Bluetooth.GenericAttributeProfile.GattDeviceServicesResult]) 'Cached service discovery'
-    Show-Services 'Cached' $cached
+    Show-DiscoveryStatus 'Cached' $cached
 
     Write-Host 'Requesting fresh services from the Mac...'
     $fresh = Wait-WinRT ($device.GetGattServicesAsync([Windows.Devices.Bluetooth.BluetoothCacheMode]::Uncached)) `
         ([Windows.Devices.Bluetooth.GenericAttributeProfile.GattDeviceServicesResult]) 'Uncached service discovery'
-    Show-Services 'Uncached' $fresh
+    Show-DiscoveryStatus 'Uncached' $fresh
     Write-Host "Connection after discovery: $($device.ConnectionStatus)"
     Write-Host "Keeping these references open for $HoldSeconds seconds; try edge switching on the Mac now."
     Start-Sleep -Seconds $HoldSeconds
     Write-Host "Connection at end: $($device.ConnectionStatus)"
     Write-Host 'Done. Copy the output and report whether Mac edge switching worked.'
 } finally {
-    foreach ($result in @($cached, $fresh)) {
-        if ($null -ne $result) {
-            foreach ($service in (ConvertTo-DeviceList $result.Services)) { $service.Dispose() }
-        }
-    }
-    if ($null -ne $device) { $device.Dispose() }
+    # The one-shot process owns the native handles and releases them on exit.
+    # Do not enumerate WinRT service vectors just to print or clean up results:
+    # PowerShell 5.1 can expose those vectors as unprojected COM objects.
+    $cached = $null
+    $fresh = $null
+    $device = $null
 }

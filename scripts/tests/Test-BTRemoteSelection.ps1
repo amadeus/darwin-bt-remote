@@ -13,6 +13,12 @@ $helper = $ast.Find({ param($node)
 }, $true)
 if ($null -eq $helper) { throw 'Device-list helper not found.' }
 . ([scriptblock]::Create($helper.Extent.Text))
+$statusHelper = $ast.Find({ param($node)
+    $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+    $node.Name -eq 'Show-DiscoveryStatus'
+}, $true)
+if ($null -eq $statusHelper) { throw 'Discovery-status helper not found.' }
+. ([scriptblock]::Create($statusHelper.Extent.Text))
 
 Add-Type @'
 using System.Collections;
@@ -26,6 +32,14 @@ public sealed class EnumerationOnlyDevices : IEnumerable {
         throw new System.NotSupportedException("Use the IEnumerable interface.");
     }
     IEnumerator IEnumerable.GetEnumerator() { return items.GetEnumerator(); }
+}
+
+public sealed class UnprojectedServiceResult {
+    public string Status { get { return "Success"; } }
+    public object ProtocolError { get { return null; } }
+    public object Services {
+        get { throw new System.NotSupportedException("The service vector must not be inspected."); }
+    }
 }
 '@
 
@@ -48,4 +62,6 @@ $single = ConvertTo-DeviceList ([EnumerationOnlyDevices]::new(@($expected[0])))
 if ($single.Count -ne 1 -or $single[0].Id -cne 'mac') { throw 'Single-device selection failed.' }
 $empty = ConvertTo-DeviceList ([EnumerationOnlyDevices]::new(@()))
 if ($null -eq $empty -or $empty.Count -ne 0) { throw 'Empty collection was not preserved.' }
-Write-Host 'PASS: script syntax, four individual rows, named selection, single device, and empty collection.'
+Show-DiscoveryStatus 'Cached' ([UnprojectedServiceResult]::new()) 6>$null
+Show-DiscoveryStatus 'Uncached' ([UnprojectedServiceResult]::new()) 6>$null
+Write-Host 'PASS: script syntax, device selection, empty/single collections, and status reporting without accessing service vectors.'
