@@ -1,21 +1,10 @@
 #!/usr/bin/env bash
-# nix-shell -p xcodegen swiftlint swiftformat xcbeautify --run "unset LD && ./build.sh"
-
-set -e
+set -euo pipefail
+export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
+export PATH="/opt/homebrew/bin:$PATH"
+cd "$(dirname "$0")"
 ci_scripts/ci_post_clone.sh
-
 swiftformat --lint .
-swiftlint lint --strict
-PROJECT="BTRemote"
-
-# macOS
-xcodebuild \
-    -project $PROJECT.xcodeproj \
-    -scheme $PROJECT \
-    -configuration Release \
-    -destination "platform=macOS" \
-    -derivedDataPath .build/DerivedData \
-    CODE_SIGNING_ALLOWED=NO \
-    build | xcbeautify
-codesign --force --sign - --entitlements $PROJECT/entitlements.plist .build/DerivedData/Build/Products/Release/$PROJECT.app
-
+swiftlint lint --strict --no-cache
+xcodebuild -project BTRemote.xcodeproj -scheme BTRemote -configuration Debug \
+    -destination "platform=macOS" -derivedDataPath .build/DerivedData build | xcbeautify

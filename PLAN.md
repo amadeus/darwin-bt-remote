@@ -59,7 +59,7 @@ xcodebuild ... test                                           # once BTRemoteTes
 open .build/DerivedData/Build/Products/Debug/BTRemote.app     # for manual checkpoints
 ```
 
-**Signing.** Set `DEVELOPMENT_TEAM: J972UZ26TC` and `CODE_SIGN_STYLE:
+**Signing.** Set `DEVELOPMENT_TEAM: UHD99KF9X7` and `CODE_SIGN_STYLE:
 Automatic` in `project.yml` (identity "Apple Development: Amadeus Demarzi" is
 already in the login keychain). Do **not** pass `CODE_SIGNING_ALLOWED=NO` for
 builds that will be run: an ad-hoc signature changes every build and macOS
@@ -622,7 +622,7 @@ target → signing → CI. iOS first because it turns the Classic deletion in
 - Add `.github/workflows/ci.yml` (push/PR, unsigned build + lint on
   `BTRemote/**`; dotnet build/test on `windows/**`). Leave the tag-triggered
   release workflow alone.
-- Signing: `DEVELOPMENT_TEAM: J972UZ26TC`, `CODE_SIGN_STYLE: Automatic` in
+- Signing: `DEVELOPMENT_TEAM: UHD99KF9X7`, `CODE_SIGN_STYLE: Automatic` in
   `project.yml` (see §0), so the Accessibility grant survives rebuilds.
 - **Manual checkpoint M0:** launch the app, grant Bluetooth and Accessibility
   once, confirm the existing Direct Input toggle still controls the PC exactly
@@ -861,3 +861,7 @@ Nothing else is open; the rest is engineering.
   regression check will be included there rather than interrupting implementation.
 
 - M0: Classic removed; kept L10n.ErrorMessage because HIDCentral still uses it.
+
+- Signing correction: the installed certificate has OU/team UHD99KF9X7;
+  J972UZ26TC in its display name is not the development team. Use the actual
+  certificate team and explicit Apple Development identity.
