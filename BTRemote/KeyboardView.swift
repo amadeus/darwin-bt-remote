@@ -47,12 +47,6 @@ struct KeyboardView: View {
         }
         .padding()
         .onChange(of: liveTyping) { _ in clear() }
-        #if os(iOS)
-            .ignoresSafeArea(.keyboard, edges: .bottom)
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) { accessoryBar }
-            }
-        #endif
     }
 
     @ViewBuilder
@@ -89,10 +83,6 @@ struct KeyboardView: View {
                 .textFieldStyle(.roundedBorder)
                 .focused($focused)
                 .autocorrectionDisabled()
-            #if os(iOS)
-                .textInputAutocapitalization(.never)
-                .keyboardType(.asciiCapable)
-            #endif
                 .onChange(of: text) { handleChange($0) }
                 .onSubmit { liveTyping ? press(.return) : send() }
             if !liveTyping {
@@ -131,7 +121,9 @@ struct KeyboardView: View {
 
     private func keyCapButton(_ key: KeyCap) -> some View {
         let armed: Bool = {
-            if case let .modifier(mod) = key.action { return mods.contains(mod) }
+            if case let .modifier(mod) = key.action {
+                return mods.contains(mod)
+            }
             return false
         }()
         return Button {
@@ -207,7 +199,11 @@ struct KeyboardView: View {
     }
 
     private func toggle(_ mod: KeyboardModifiers) {
-        if mods.contains(mod) { mods.subtract(mod) } else { mods.insert(mod) }
+        if mods.contains(mod) {
+            mods.subtract(mod)
+        } else {
+            mods.insert(mod)
+        }
     }
 
     // live typing: diff the field against what was already sent
@@ -314,7 +310,9 @@ private struct ArrowPad: View {
 
     private func _direction(_ d: CGSize) -> Keycode? {
         guard hypot(d.width, d.height) >= 20 else { return nil }
-        if abs(d.width) > abs(d.height) { return d.width > 0 ? .rightArrow : .leftArrow }
+        if abs(d.width) > abs(d.height) {
+            return d.width > 0 ? .rightArrow : .leftArrow
+        }
         return d.height > 0 ? .downArrow : .upArrow
     }
 }

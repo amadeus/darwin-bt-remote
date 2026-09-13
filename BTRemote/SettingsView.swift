@@ -10,23 +10,13 @@ struct SettingsView: View {
     @AppStorage(AppSettings.developerModeKey) private var developerMode = false
     @AppStorage(AppSettings.useServiceChangedKey) private var forceServiceChanged = true
     @AppStorage(AppSettings.hasSeenWelcomeKey) private var hasSeenWelcome = false
-    #if os(iOS)
-        @AppStorage(AppSettings.autoAdvertiseKey) private var autoAdvertise = true
-    #endif
 
     var body: some View {
-        #if os(macOS)
-            NavigationStack {
-                form
-                    .formStyle(.grouped)
-                    .navigationTitle(L10n.Tab.settings)
-            }
-        #else
-            NavigationView {
-                form.navigationTitle(L10n.Tab.settings)
-            }
-            .navigationViewStyle(.stack)
-        #endif
+        NavigationStack {
+            form
+                .formStyle(.grouped)
+                .navigationTitle(L10n.Tab.settings)
+        }
     }
 
     private var form: some View {
@@ -35,14 +25,13 @@ struct SettingsView: View {
                 sensitivityRow(L10n.Settings.trackingSpeed, value: $touchpadSensitivity, range: AppSettings.pointerSensitivityRange)
                 sensitivityRow(L10n.Settings.scrollSpeed, value: $scrollSensitivity, range: AppSettings.scrollSensitivityRange)
             }
-            #if os(iOS)
-                Section(header: Text(L10n.Settings.connection), footer: Text(L10n.Settings.autoAdvertiseHint)) {
-                    Toggle(L10n.Settings.autoAdvertise, isOn: $autoAdvertise)
-                }
-            #endif
             Section(footer: Text(L10n.Settings.forceServiceChangedHint)) {
                 Toggle(L10n.Settings.forceServiceChanged, isOn: $forceServiceChanged)
-                    .onChange(of: forceServiceChanged) { if $0 { lowEnergy.scheduleServiceChanged() } }
+                    .onChange(of: forceServiceChanged) {
+                        if $0 {
+                            lowEnergy.scheduleServiceChanged()
+                        }
+                    }
             }
             Section(header: Text(L10n.Settings.advanced)) {
                 Toggle(L10n.Settings.developerMode, isOn: $developerMode)
@@ -50,7 +39,9 @@ struct SettingsView: View {
                     Label(L10n.Settings.sourceCode, systemImage: "chevron.left.forwardslash.chevron.right")
                 }
             }
-            if developerMode, hid.isActive { batterySection }
+            if developerMode, hid.isActive {
+                batterySection
+            }
             resetSection
         }
         .confirmationDialog(L10n.Settings.resetConfirm, isPresented: $showReset, titleVisibility: .visible) {
@@ -109,17 +100,10 @@ struct SettingsView: View {
 
 #if DEBUG
     #Preview {
-        #if os(iOS)
-            SettingsView()
-                .environmentObject(HIDPeripheral())
-                .environmentObject(HIDCentral())
-                .environmentObject(DeviceNameStore())
-        #else
-            SettingsView()
-                .environmentObject(HIDPeripheral())
-                .environmentObject(HIDCentral())
-                .environmentObject(DeviceNameStore())
-                .environmentObject(HIDClassicDevice())
-        #endif
+        SettingsView()
+            .environmentObject(HIDPeripheral())
+            .environmentObject(HIDCentral())
+            .environmentObject(DeviceNameStore())
+            .environmentObject(HIDClassicDevice())
     }
 #endif

@@ -10,3 +10,5 @@
 --self remove
 
 --exclude DerivedData,.build,app
+
+--disable environmentEntry,wrapIfStatementBodies

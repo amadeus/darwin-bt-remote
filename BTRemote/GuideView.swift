@@ -12,12 +12,10 @@ struct GuideView: View {
 
     var body: some View {
         Form {
-            #if os(macOS)
-                Section {
-                    Text(about).font(.caption).foregroundColor(.secondary)
-                    Text(compatibility).font(.caption).foregroundColor(.secondary)
-                }
-            #endif
+            Section {
+                Text(about).font(.caption).foregroundColor(.secondary)
+                Text(compatibility).font(.caption).foregroundColor(.secondary)
+            }
             switch transport {
             case .lowEnergy:
                 Section(header: header(L10n.Setup.fromApp, L10n.Setup.connectFromThisApp), footer: fromAppFooter) {
@@ -37,13 +35,8 @@ struct GuideView: View {
                 }
             }
         }
-        #if os(macOS)
         .formStyle(.grouped)
-        #endif
         .navigationTitle(title)
-        #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-        #endif
     }
 
     private var footer: some View {
@@ -75,21 +68,19 @@ struct GuideView: View {
         }
     }
 
-    #if os(macOS)
-        private var about: LocalizedStringKey {
-            switch transport {
-            case .lowEnergy: L10n.TransportMode.lowEnergyAbout
-            case .classic: L10n.TransportMode.classicAbout
-            }
+    private var about: LocalizedStringKey {
+        switch transport {
+        case .lowEnergy: L10n.TransportMode.lowEnergyAbout
+        case .classic: L10n.TransportMode.classicAbout
         }
+    }
 
-        private var compatibility: LocalizedStringKey {
-            switch transport {
-            case .lowEnergy: L10n.TransportMode.lowEnergyCompatibility
-            case .classic: L10n.TransportMode.classicCompatibility
-            }
+    private var compatibility: LocalizedStringKey {
+        switch transport {
+        case .lowEnergy: L10n.TransportMode.lowEnergyCompatibility
+        case .classic: L10n.TransportMode.classicCompatibility
         }
-    #endif
+    }
 
     private var troubleshooting: LocalizedStringKey {
         switch transport {

@@ -11,20 +11,12 @@ struct RemoteTabView: View {
     @AppStorage(AppSettings.liveTypingKey) private var liveTyping = true
 
     var body: some View {
-        #if os(macOS)
-            NavigationStack { titledContent }
-        #else
-            NavigationView { titledContent }
-                .navigationViewStyle(.stack)
-        #endif
+        NavigationStack { titledContent }
     }
 
     private var titledContent: some View {
         content
             .navigationTitle(L10n.Tab.remote)
-        #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-        #endif
             .toolbar { menu }
     }
 

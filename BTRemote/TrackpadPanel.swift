@@ -5,9 +5,7 @@ struct TrackpadPanel: View {
 
     @AppStorage(AppSettings.touchpadSensitivityKey) private var touchpadSensitivity = AppSettings.defaultPointerSensitivity
     @AppStorage(AppSettings.scrollSensitivityKey) private var scrollSensitivity = AppSettings.defaultScrollSensitivity
-    #if os(macOS)
-        @State private var dragOffset: CGSize = .zero
-    #endif
+    @State private var dragOffset: CGSize = .zero
 
     var body: some View {
         VStack(spacing: cellGap) {
@@ -23,34 +21,22 @@ struct TrackpadPanel: View {
     private var surface: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 12).fill(groupFill)
-            #if os(iOS)
-                TouchpadView(
-                    moveSensitivity: touchpadSensitivity,
-                    scrollSensitivity: scrollSensitivity,
-                    onMove: { hid.move(dx: $0, dy: $1) },
-                    onScroll: { hid.scroll($0) },
-                    onLeftClick: { Haptics.tap(); hid.click(.left) },
-                    onRightClick: { Haptics.tap(); hid.click(.right) }
-                )
-            #endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        #if os(macOS)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture()
-                    .onChanged { value in
-                        let dx = HIDInput.clamp((value.translation.width - dragOffset.width) * touchpadSensitivity)
-                        let dy = HIDInput.clamp((value.translation.height - dragOffset.height) * touchpadSensitivity)
-                        dragOffset = value.translation
-                        hid.move(dx: dx, dy: dy)
-                    }
-                    .onEnded { _ in
-                        dragOffset = .zero
-                        hid.sendMouse(.zero)
-                    }
-            )
-        #endif
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture()
+                .onChanged { value in
+                    let dx = HIDInput.clamp((value.translation.width - dragOffset.width) * touchpadSensitivity)
+                    let dy = HIDInput.clamp((value.translation.height - dragOffset.height) * touchpadSensitivity)
+                    dragOffset = value.translation
+                    hid.move(dx: dx, dy: dy)
+                }
+                .onEnded { _ in
+                    dragOffset = .zero
+                    hid.sendMouse(.zero)
+                }
+        )
     }
 
     private var scrollAmount: Int8 {

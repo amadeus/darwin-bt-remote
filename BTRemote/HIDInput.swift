@@ -1,9 +1,6 @@
 import CoreGraphics
 import Foundation
 import SwiftUI
-#if os(iOS)
-    import UIKit
-#endif
 
 /// routes UI input to the active HID backend
 struct HIDInput {
@@ -70,27 +67,20 @@ struct HIDInput {
 }
 
 extension HIDInput {
-    #if os(macOS)
-        @MainActor
-        static func make(lowEnergy: HIDPeripheral, central: HIDCentral, classic: HIDClassicDevice, classicMode: Bool) -> HIDInput {
-            guard classicMode else { return _lowEnergy(lowEnergy, central) }
-            return HIDInput(
-                sendMouse: { classic.sendMouse($0) },
-                sendKeyboard: { classic.sendKeyboard($0) },
-                sendConsumer: { classic.sendConsumer($0) },
-                updateBattery: { classic.updateBatteryLevel($0) },
-                isActive: classic.isSDPPublished,
-                isConnected: classic.connectedAddress != nil,
-                activeError: classic.lastError,
-                batteryLevel: classic.batteryLevel
-            )
-        }
-    #else
-        @MainActor
-        static func make(lowEnergy: HIDPeripheral, central: HIDCentral) -> HIDInput {
-            _lowEnergy(lowEnergy, central)
-        }
-    #endif
+    @MainActor
+    static func make(lowEnergy: HIDPeripheral, central: HIDCentral, classic: HIDClassicDevice, classicMode: Bool) -> HIDInput {
+        guard classicMode else { return _lowEnergy(lowEnergy, central) }
+        return HIDInput(
+            sendMouse: { classic.sendMouse($0) },
+            sendKeyboard: { classic.sendKeyboard($0) },
+            sendConsumer: { classic.sendConsumer($0) },
+            updateBattery: { classic.updateBatteryLevel($0) },
+            isActive: classic.isSDPPublished,
+            isConnected: classic.connectedAddress != nil,
+            activeError: classic.lastError,
+            batteryLevel: classic.batteryLevel
+        )
+    }
 
     static var unavailable: HIDInput {
         HIDInput(
@@ -115,7 +105,9 @@ extension HIDInput {
 }
 
 private struct HIDInputKey: EnvironmentKey {
-    static var defaultValue: HIDInput { .unavailable }
+    static var defaultValue: HIDInput {
+        .unavailable
+    }
 }
 
 extension EnvironmentValues {
@@ -127,18 +119,18 @@ extension EnvironmentValues {
 
 enum Haptics {
     @MainActor
-    static func tap() {
-        #if os(iOS)
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        #endif
-    }
+    static func tap() {}
 }
 
 /// US-layout ASCII to keycode/modifier mapping
 private func mapASCII(_ character: Character) -> (Keycode, KeyboardModifiers)? {
     if let a = character.asciiValue {
-        if a >= 0x61, a <= 0x7A, let key = Keycode(rawValue: 0x04 + (a - 0x61)) { return (key, []) } // a..z
-        if a >= 0x41, a <= 0x5A, let key = Keycode(rawValue: 0x04 + (a - 0x41)) { return (key, .leftShift) } // A..Z
+        if a >= 0x61, a <= 0x7A, let key = Keycode(rawValue: 0x04 + (a - 0x61)) {
+            return (key, [])
+        } // a..z
+        if a >= 0x41, a <= 0x5A, let key = Keycode(rawValue: 0x04 + (a - 0x41)) {
+            return (key, .leftShift)
+        } // A..Z
     }
     return _symbolKeys[character]
 }

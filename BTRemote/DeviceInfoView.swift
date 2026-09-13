@@ -7,12 +7,7 @@ struct DeviceInfoView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        #if os(macOS)
-            NavigationStack { content.formStyle(.grouped) }
-        #else
-            NavigationView { content }
-                .navigationViewStyle(.stack)
-        #endif
+        NavigationStack { content.formStyle(.grouped) }
     }
 
     private var content: some View {
@@ -50,14 +45,11 @@ struct DeviceInfoView: View {
             }
         }
         .navigationTitle(L10n.DeviceInfo.title)
-        #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-        #endif
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(L10n.DeviceInfo.done) { dismiss() }
-                }
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button(L10n.DeviceInfo.done) { dismiss() }
             }
+        }
     }
 
     private var hasAdvertisement: Bool {
@@ -136,19 +128,16 @@ struct NameEditView: View {
                     .focused($focused)
             }
         }
-        #if os(macOS)
         .formStyle(.grouped)
-        #endif
         .navigationTitle(title)
-        #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-        #endif
-            .onAppear { focused = true }
-            .onDisappear(perform: onCommit)
+        .onAppear { focused = true }
+        .onDisappear(perform: onCommit)
     }
 
     @ViewBuilder private var _footer: some View {
-        if let footer { Text(footer) }
+        if let footer {
+            Text(footer)
+        }
     }
 
     private var _clamped: Binding<String> {
