@@ -9,6 +9,6 @@
 --stripunusedargs closure-only
 --self remove
 
---exclude DerivedData,.build,app
+--exclude DerivedData,.build,app,windows
 
 --disable environmentEntry,wrapIfStatementBodies

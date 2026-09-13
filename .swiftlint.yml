@@ -1,10 +1,12 @@
 included:
   - BTRemote
+  - BTRemoteTests
 
 excluded:
   - DerivedData
   - .build
   - app
+  - windows
 
 disabled_rules:
   - multiple_closures_with_trailing_closure
