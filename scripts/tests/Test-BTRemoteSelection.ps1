@@ -21,6 +21,10 @@ public sealed class EnumerationOnlyDevices : IEnumerable {
     private readonly object[] items;
     public EnumerationOnlyDevices(object[] items) { this.items = items; }
     public int Count { get { return items.Length; } }
+    // Reproduce PowerShell binding to a public overload instead of IEnumerable.
+    public IEnumerator GetEnumerator(int unused) {
+        throw new System.NotSupportedException("Use the IEnumerable interface.");
+    }
     IEnumerator IEnumerable.GetEnumerator() { return items.GetEnumerator(); }
 }
 '@

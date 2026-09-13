@@ -69,11 +69,18 @@ now copies the collection through its enumerator into a managed list, queries
 association endpoints explicitly, and validates that the selected value is one
 device. Async failures include the underlying message and HRESULT.
 
+The second Windows run failed when PowerShell bound `GetEnumerator` on the
+WinRT collection. A local fixture exposing a conflicting public overload
+reproduced the exact zero-argument method error. Collection copying now uses
+a compiled C# helper calling `IEnumerable` directly, for both devices and
+service lists. That same regression passes with the helper. Neither failed
+Windows run reached a valid service-discovery result.
+
 `scripts/tests/Test-BTRemoteSelection.ps1` checks the script syntax and the
 actual selection helper with an enumeration-only collection, including four
 separate devices, name selection, one device, and no devices. It passes under
-portable PowerShell 7.6.6 on macOS; the Windows PowerShell 5.1/WinRT retry is
-still required.
+portable PowerShell 7.6.6 on macOS, including the conflicting-enumerator
+regression; the Windows PowerShell 5.1/WinRT retry is still required.
 
 References:
 

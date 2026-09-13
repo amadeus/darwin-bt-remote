@@ -53,22 +53,31 @@ function Show-Services {
     if ($null -ne $Result.ProtocolError) {
         Write-Host "ATT protocol error: $($Result.ProtocolError)"
     }
-    foreach ($service in $Result.Services) {
+    foreach ($service in (ConvertTo-DeviceList $Result.Services)) {
         Write-Host "  $($service.Uuid)"
     }
 }
 
 function ConvertTo-DeviceList {
     param([System.Collections.IEnumerable] $Collection)
-    $list = [System.Collections.Generic.List[object]]::new()
-    $enumerator = $Collection.GetEnumerator()
-    try {
-        while ($enumerator.MoveNext()) { $list.Add($enumerator.Current) }
-    } finally {
-        if ($enumerator -is [System.IDisposable]) { $enumerator.Dispose() }
+    if ($null -eq ('BTRemoteDiagnostics.CollectionBridge' -as [type])) {
+        # Compile against IEnumerable so WinRT methods bypass PowerShell's binder.
+        Add-Type -TypeDefinition @'
+using System.Collections;
+using System.Collections.Generic;
+
+namespace BTRemoteDiagnostics {
+    public static class CollectionBridge {
+        public static object[] Copy(IEnumerable source) {
+            var result = new List<object>();
+            foreach (object item in source) result.Add(item);
+            return result.ToArray();
+        }
     }
-    # This managed list supports indexing even when the WinRT collection does not.
-    return ,$list
+}
+'@
+    }
+    return ,([BTRemoteDiagnostics.CollectionBridge]::Copy($Collection))
 }
 
 $selector = [Windows.Devices.Bluetooth.BluetoothLEDevice]::GetDeviceSelectorFromPairingState($true)
@@ -77,7 +86,7 @@ $collection = Wait-WinRT ([Windows.Devices.Enumeration.DeviceInformation]::FindA
     $selector, $properties, [Windows.Devices.Enumeration.DeviceInformationKind]::AssociationEndpoint
 )) ([Windows.Devices.Enumeration.DeviceInformationCollection]) 'Enumerating paired BLE devices'
 # WinRT's collection has Count but PowerShell 5.1 does not reliably index it.
-# Copy through IEnumerable into a managed list before selecting a row.
+# Copy through compiled IEnumerable calls before selecting a row.
 $devices = ConvertTo-DeviceList $collection
 if ($devices.Count -eq 0) {
     throw 'Windows reports no paired BLE devices. The existing Mac entry may only be a Classic Bluetooth pairing.'
@@ -130,7 +139,7 @@ try {
 } finally {
     foreach ($result in @($cached, $fresh)) {
         if ($null -ne $result) {
-            foreach ($service in $result.Services) { $service.Dispose() }
+            foreach ($service in (ConvertTo-DeviceList $result.Services)) { $service.Dispose() }
         }
     }
     if ($null -ne $device) { $device.Dispose() }
