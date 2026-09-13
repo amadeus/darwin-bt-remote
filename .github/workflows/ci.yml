@@ -1,0 +1,21 @@
+name: CI
+on:
+  push:
+    branches: ['**']
+  pull_request:
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install tools
+        run: brew install xcodegen swiftformat swiftlint
+      - name: Generate project
+        run: ci_scripts/ci_post_clone.sh
+      - name: Lint
+        run: swiftformat --lint . && swiftlint lint --strict --no-cache
+      - name: Build and test
+        run: >-
+          xcodebuild -project BTRemote.xcodeproj -scheme BTRemote
+          -configuration Debug -destination 'platform=macOS'
+          -derivedDataPath .build/DerivedData CODE_SIGNING_ALLOWED=NO test
