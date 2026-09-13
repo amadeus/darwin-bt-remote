@@ -704,6 +704,11 @@ M3), and the way back is the toggle hotkey or an automatic release. Rule 8 in
 
 ### M3 — Companion v1: edge return and cursor placement
 
+- Windows reconnect: retain the selected paired BLE endpoint and initiate
+  connection/service rediscovery when the Mac returns. One-shot uncached GATT
+  discovery has restored HID control without re-pairing in the live M2 test;
+  verify automatic recovery across normal Mac quit/relaunch and PC sleep/radio
+  cycles. See docs/BLUETOOTH-RECONNECT.md.
 - Mac: `CompanionService`, `CompanionLink` framing and companion send queue,
   HELLO/PING/STATE handling, `ENTER`/`ENTER_ACK`/`LEAVE`, secure-input warning.
 - Mac: retain the existing HID descriptor and report encoding. If S3 shows
@@ -900,7 +905,9 @@ Nothing else is open; the rest is engineering.
 - Next requested behavior: proportional Windows cursor placement on edge entry,
   already specified in M3. The current relative HID reports cannot set a screen
   coordinate; the planned companion's ENTER handler supplies that placement.
-- Reconnect checkpoint issue: normal Mac app quit/relaunch loses the Windows
-  HID subscription and currently requires re-pairing. Enabling peripheral state
-  restoration did not fix normal quit and was reverted. Evidence and remaining
-  Windows-side checks are in docs/BLUETOOTH-RECONNECT.md; this remains unresolved.
+- Reconnect checkpoint: normal Mac quit/relaunch loses automatic Windows HID
+  reconnection. Uncached discovery from Windows restored the existing pairing's
+  HID subscriptions, and the user confirmed control still worked after the
+  diagnostic exited. Use scripts/Test-BTRemoteConnection.ps1 as the verified
+  manual workaround; automate recovery in M3. Peripheral state restoration did
+  not fix normal quit and was reverted. See docs/BLUETOOTH-RECONNECT.md.
