@@ -18,6 +18,8 @@ loses the HID connection. Removing and pairing again restores it.
 - Toggling the existing Force Service Changed setting while disconnected did
   not recover the host; changing the database cannot notify a disconnected
   Windows client.
+- Cycling Bluetooth off/on in Windows while retaining the pairing did not
+  reconnect automatically. BTRemote still showed zero subscriptions afterward.
 
 ## Experiment that did not fix normal quit
 
@@ -37,12 +39,28 @@ the HID service disappears and subsequently stop requesting that connection.
 That Windows-side explanation remains an inference; the Mac log does not
 expose Windows' cache or driver state.
 
-The pending manual check is a Windows Bluetooth off/on cycle while preserving
-the pairing. If that does not recover the HID link, the next targeted test is
-uncached GATT discovery from Windows. Microsoft documents that uncached
-discovery or `GattSession.MaintainConnection` can initiate a BLE connection.
+The next targeted test is uncached GATT discovery from Windows. Microsoft
+documents that uncached discovery or `GattSession.MaintainConnection` can initiate a BLE connection.
 The planned Windows companion can use that mechanism, but reconnect behavior
 must be verified independently of cursor placement.
+
+`scripts/Test-BTRemoteConnection.ps1` performs this diagnostic in Windows
+PowerShell 5.1. Keep BTRemote advertising on the Mac, copy the script to the PC,
+and run it from Windows PowerShell:
+
+```powershell
+powershell.exe -NoProfile -File .\Test-BTRemoteConnection.ps1
+```
+
+If local script policy prevents running the file, open it in a text editor and
+paste its contents into Windows PowerShell. No policy change is needed.
+
+It selects the paired device named BTRemote, or asks the user to select the
+paired Mac if that name is not unique/present. It prints cached and uncached
+service-discovery status and holds the device references for twenty seconds
+to allow checking edge switching. It does not pair, unpair, write reports or
+install anything. Its Windows Runtime calls cannot be executed on this Mac;
+Windows results and whether HID input recovers remain unverified.
 
 References:
 
