@@ -117,8 +117,7 @@ final class InputTap: @unchecked Sendable {
                 CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(code)) ? UInt16(code) : nil
             })
             location = CGEvent(source: nil)?.location ?? .zero
-            handoff.heldKeys.remove(57)
-            handoff.modifiers = CGEventSource.flagsState(.combinedSessionState)
+            handoff.updateModifiers(CGEventSource.flagsState(.combinedSessionState))
             handoff.heldButtons = Set((0 ... 31).compactMap { button in
                 guard let cgButton = CGMouseButton(rawValue: UInt32(button)) else { return nil }
                 return CGEventSource.buttonState(.combinedSessionState, button: cgButton) ? Int64(button) : nil
@@ -194,10 +193,7 @@ final class InputTap: @unchecked Sendable {
                 )
                 if consumed { return true }
             } else if type == .flagsChanged {
-                let code = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
-                if code != 57, CGEventSource.keyState(.combinedSessionState, key: code) {
-                    handoff.heldKeys.insert(code)
-                } else { handoff.heldKeys.remove(code) }
+                handoff.updateModifiers(event.flags)
             }
             _trackButtons(type: type, event: event)
             let motion = [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged].contains(type)

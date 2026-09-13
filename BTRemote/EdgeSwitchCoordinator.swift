@@ -23,6 +23,7 @@ final class EdgeSwitchCoordinator: ObservableObject {
     private var tapStarting = false
     private var currentTarget: UUID?
     private var captureTarget: UUID?
+    private var restoringPreferences = true
 
     @Published private(set) var isRemote = false
     @Published private(set) var targetAvailable = false
@@ -77,6 +78,7 @@ final class EdgeSwitchCoordinator: ObservableObject {
                 .object(forKey: AppSettings.toggleModifiersKey) as? Int ?? Int(CGEventFlags.maskSecondaryFn.rawValue)),
             enabled: defaults.object(forKey: AppSettings.toggleHotkeyEnabledKey) as? Bool ?? true
         )
+        restoringPreferences = false
     }
 
     func start() {
@@ -192,6 +194,7 @@ final class EdgeSwitchCoordinator: ObservableObject {
     }
 
     private func _save() {
+        guard !restoringPreferences else { return }
         if isRemote { returnLocal() }
         let defaults = UserDefaults.standard
         defaults.set(edgeEnabled, forKey: AppSettings.edgeSwitchEnabledKey)

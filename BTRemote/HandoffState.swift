@@ -20,6 +20,8 @@ struct HandoffState: Sendable {
     var modifiers: CGEventFlags = []
     private(set) var pendingToggle = false
     private var consumedKey: UInt16?
+    /// modifier transitions are represented by event flags, not the global key-state snapshot
+    static let modifierKeyCodes: Set<UInt16> = [54, 55, 56, 57, 58, 59, 60, 61, 62, 63]
 
     init(heldKeys: Set<UInt16> = [], heldButtons: Set<Int64> = []) {
         self.heldKeys = heldKeys
@@ -43,6 +45,11 @@ struct HandoffState: Sendable {
             return true
         }
         return false
+    }
+
+    mutating func updateModifiers(_ flags: CGEventFlags) {
+        modifiers = flags
+        heldKeys.subtract(Self.modifierKeyCodes)
     }
 
     mutating func requestToggle() {

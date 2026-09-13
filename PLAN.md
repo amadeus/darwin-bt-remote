@@ -891,3 +891,12 @@ Nothing else is open; the rest is engineering.
   makes the suppression decision synchronously; ordered main-queue messages
   perform AppKit cursor setup and the unchanged report translation. Normal
   returns use the local hotkey; no recovery helper process is installed.
+
+- M2 live checkpoint: user confirmed control is working after fixing stale
+  Shift/Command tracking. Modifier transitions now use the event flags instead
+  of querying global key state inside the callback; two regression tests cover
+  modifier release and preserving ordinary held keys (ten tests total).
+  Preference loading also suppresses writes until all saved values are restored.
+- Next requested behavior: proportional Windows cursor placement on edge entry,
+  already specified in M3. The current relative HID reports cannot set a screen
+  coordinate; the planned companion's ENTER handler supplies that placement.

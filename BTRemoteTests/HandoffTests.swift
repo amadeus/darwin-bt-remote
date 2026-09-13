@@ -35,6 +35,23 @@ final class HandoffTests: XCTestCase {
         XCTAssertTrue(state.takeToggle())
     }
 
+    func testModifierReleaseClearsStartupSnapshotWithoutQueryingGlobalKeyState() {
+        var state = HandoffState(heldKeys: [55, 56])
+        state.modifiers = [.maskCommand, .maskShift]
+        state.requestToggle()
+        state.updateModifiers(.maskShift)
+        XCTAssertFalse(state.takeToggle())
+        state.updateModifiers([])
+        XCTAssertTrue(state.takeToggle())
+    }
+
+    func testModifierReleaseDoesNotReleaseAnOrdinaryHeldKey() {
+        var state = HandoffState(heldKeys: [0, 55])
+        state.updateModifiers([])
+        XCTAssertEqual(state.heldKeys, [0])
+        XCTAssertFalse(state.isReleased)
+    }
+
     func testShortcutRequiresExactModifiers() {
         var state = HandoffState()
         XCTAssertFalse(state.key(code: 53, down: true, repeatEvent: false, flags: [.maskSecondaryFn, .maskShift], shortcut: .init()))
