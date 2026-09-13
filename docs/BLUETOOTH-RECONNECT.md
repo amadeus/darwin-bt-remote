@@ -49,11 +49,11 @@ PowerShell 5.1. Keep BTRemote advertising on the Mac, copy the script to the PC,
 and run it from Windows PowerShell:
 
 ```powershell
-powershell.exe -NoProfile -File .\Test-BTRemoteConnection.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Test-BTRemoteConnection.ps1
 ```
 
-If local script policy prevents running the file, open it in a text editor and
-paste its contents into Windows PowerShell. No policy change is needed.
+The execution-policy override applies only to this PowerShell process; it does
+not change the saved user or machine policy.
 
 It selects the paired device named BTRemote, or asks the user to select the
 paired Mac if that name is not unique/present. It prints cached and uncached
@@ -61,6 +61,19 @@ service-discovery status and holds the device references for twenty seconds
 to allow checking edge switching. It does not pair, unpair, write reports or
 install anything. Its Windows Runtime calls cannot be executed on this Mac;
 Windows results and whether HID input recovers remain unverified.
+
+The first Windows run exposed a diagnostic bug: its WinRT collection printed
+all device names in row zero and passed multiple IDs to `FromIdAsync`. That
+failure does not establish a Bluetooth connection or bond failure. Selection
+now copies the collection through its enumerator into a managed list, queries
+association endpoints explicitly, and validates that the selected value is one
+device. Async failures include the underlying message and HRESULT.
+
+`scripts/tests/Test-BTRemoteSelection.ps1` checks the script syntax and the
+actual selection helper with an enumeration-only collection, including four
+separate devices, name selection, one device, and no devices. It passes under
+portable PowerShell 7.6.6 on macOS; the Windows PowerShell 5.1/WinRT retry is
+still required.
 
 References:
 

@@ -19,6 +19,7 @@ if ($PSVersionTable.PSEdition -ne 'Desktop') {
 Add-Type -AssemblyName System.Runtime.WindowsRuntime
 $null = [Windows.Devices.Enumeration.DeviceInformation, Windows.Devices.Enumeration, ContentType = WindowsRuntime]
 $null = [Windows.Devices.Enumeration.DeviceInformationCollection, Windows.Devices.Enumeration, ContentType = WindowsRuntime]
+$null = [Windows.Devices.Enumeration.DeviceInformationKind, Windows.Devices.Enumeration, ContentType = WindowsRuntime]
 $null = [Windows.Devices.Bluetooth.BluetoothLEDevice, Windows.Devices.Bluetooth, ContentType = WindowsRuntime]
 $null = [Windows.Devices.Bluetooth.BluetoothCacheMode, Windows.Devices.Bluetooth, ContentType = WindowsRuntime]
 $null = [Windows.Devices.Bluetooth.GenericAttributeProfile.GattDeviceServicesResult, Windows.Devices.Bluetooth, ContentType = WindowsRuntime]
@@ -31,13 +32,19 @@ $asTask = [System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
 if ($null -eq $asTask) { throw 'The Windows Runtime async adapter is unavailable.' }
 
 function Wait-WinRT {
-    param($Operation, [Type] $ResultType)
-    $task = $asTask.MakeGenericMethod($ResultType).Invoke($null, @($Operation))
-    if (-not $task.Wait(45000)) {
-        throw 'Windows did not finish the Bluetooth request within 45 seconds.'
+    param($Operation, [Type] $ResultType, [string] $Label = 'Windows Bluetooth request')
+    try {
+        $task = $asTask.MakeGenericMethod($ResultType).Invoke($null, @($Operation))
+        if (-not $task.Wait(45000)) {
+            throw 'Windows did not finish the Bluetooth request within 45 seconds.'
+        }
+        # Preserve the WinRT result; the caller explicitly enumerates collections.
+        return ,($task.GetAwaiter().GetResult())
+    } catch {
+        $cause = $_.Exception.GetBaseException()
+        $hresult = '0x{0:X8}' -f $cause.HResult
+        throw "${Label} failed: $($cause.Message) (HRESULT $hresult)"
     }
-    # Keep a DeviceInformationCollection as one result rather than unrolling it.
-    return ,($task.GetAwaiter().GetResult())
 }
 
 function Show-Services {
@@ -51,9 +58,27 @@ function Show-Services {
     }
 }
 
+function ConvertTo-DeviceList {
+    param([System.Collections.IEnumerable] $Collection)
+    $list = [System.Collections.Generic.List[object]]::new()
+    $enumerator = $Collection.GetEnumerator()
+    try {
+        while ($enumerator.MoveNext()) { $list.Add($enumerator.Current) }
+    } finally {
+        if ($enumerator -is [System.IDisposable]) { $enumerator.Dispose() }
+    }
+    # This managed list supports indexing even when the WinRT collection does not.
+    return ,$list
+}
+
 $selector = [Windows.Devices.Bluetooth.BluetoothLEDevice]::GetDeviceSelectorFromPairingState($true)
-$devices = Wait-WinRT ([Windows.Devices.Enumeration.DeviceInformation]::FindAllAsync($selector)) `
-    ([Windows.Devices.Enumeration.DeviceInformationCollection])
+$properties = [string[]] @('System.Devices.Aep.IsPaired', 'System.Devices.Aep.IsConnected')
+$collection = Wait-WinRT ([Windows.Devices.Enumeration.DeviceInformation]::FindAllAsync(
+    $selector, $properties, [Windows.Devices.Enumeration.DeviceInformationKind]::AssociationEndpoint
+)) ([Windows.Devices.Enumeration.DeviceInformationCollection]) 'Enumerating paired BLE devices'
+# WinRT's collection has Count but PowerShell 5.1 does not reliably index it.
+# Copy through IEnumerable into a managed list before selecting a row.
+$devices = ConvertTo-DeviceList $collection
 if ($devices.Count -eq 0) {
     throw 'Windows reports no paired BLE devices. The existing Mac entry may only be a Classic Bluetooth pairing.'
 }
@@ -74,6 +99,10 @@ if ($matchesByName.Count -eq 1) {
     }
     $selected = $devices[$selectionIndex]
 }
+if ($selected -isnot [Windows.Devices.Enumeration.DeviceInformation] -or
+    $selected.Id -isnot [string] -or [string]::IsNullOrWhiteSpace($selected.Id)) {
+    throw 'Device selection did not resolve to one BLE endpoint; no connection was attempted.'
+}
 
 $device = $null
 $cached = $null
@@ -81,17 +110,17 @@ $fresh = $null
 try {
     Write-Host "Selected: $($selected.Name); paired: $($selected.Pairing.IsPaired)"
     $device = Wait-WinRT ([Windows.Devices.Bluetooth.BluetoothLEDevice]::FromIdAsync($selected.Id)) `
-        ([Windows.Devices.Bluetooth.BluetoothLEDevice])
+        ([Windows.Devices.Bluetooth.BluetoothLEDevice]) 'Opening the selected BLE device'
     if ($null -eq $device) { throw 'Windows could not open the selected BLE device.' }
     Write-Host "Connection before discovery: $($device.ConnectionStatus)"
 
     $cached = Wait-WinRT ($device.GetGattServicesAsync([Windows.Devices.Bluetooth.BluetoothCacheMode]::Cached)) `
-        ([Windows.Devices.Bluetooth.GenericAttributeProfile.GattDeviceServicesResult])
+        ([Windows.Devices.Bluetooth.GenericAttributeProfile.GattDeviceServicesResult]) 'Cached service discovery'
     Show-Services 'Cached' $cached
 
     Write-Host 'Requesting fresh services from the Mac...'
     $fresh = Wait-WinRT ($device.GetGattServicesAsync([Windows.Devices.Bluetooth.BluetoothCacheMode]::Uncached)) `
-        ([Windows.Devices.Bluetooth.GenericAttributeProfile.GattDeviceServicesResult])
+        ([Windows.Devices.Bluetooth.GenericAttributeProfile.GattDeviceServicesResult]) 'Uncached service discovery'
     Show-Services 'Uncached' $fresh
     Write-Host "Connection after discovery: $($device.ConnectionStatus)"
     Write-Host "Keeping these references open for $HoldSeconds seconds; try edge switching on the Mac now."
