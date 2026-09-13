@@ -26,5 +26,7 @@
 	<false/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>BT Remote uses Bluetooth as a keyboard and mouse.</string>
+	<key>LSUIElement</key>
+	<true/>
 </dict>
 </plist>

@@ -5,161 +5,35 @@ import Foundation
 @MainActor
 final class DirectInputController: ObservableObject {
     @Published private(set) var isCapturing = false
-    @Published private(set) var lastError: String?
-    @Published private(set) var needsAccessibility = false
 
-    private var eventTap: CFMachPort?
-    private var runLoopSource: CFRunLoopSource?
-    private var statusItem: NSStatusItem?
     private var pressedKeys: Set<Keycode> = []
     private var pressedMouseButtons: MouseButtons = []
     private var modifiers: KeyboardModifiers = []
-    private var cursorHidden = false
 
     private var sendKeyboard: ((KeyboardReport) -> Void)?
     private var sendMouse: ((MouseReport) -> Void)?
-    private var onRelease: (() -> Void)?
 
-    /// capture input and route it to HID backend
+    /// retains the upstream report translation; tap and cursor lifetime belong to the coordinator
     func start(_ hid: HIDInput) {
-        start(sendKeyboard: hid.sendKeyboard, sendMouse: hid.sendMouse, onRelease: {})
-    }
-
-    func start(
-        sendKeyboard: @escaping (KeyboardReport) -> Void,
-        sendMouse: @escaping (MouseReport) -> Void,
-        onRelease: @escaping () -> Void
-    ) {
         stop()
-
-        self.sendKeyboard = sendKeyboard
-        self.sendMouse = sendMouse
-        self.onRelease = onRelease
-        pressedKeys.removeAll()
-        pressedMouseButtons = []
-        modifiers = []
-        lastError = nil
-
-        guard AccessibilityPermission.isTrusted else {
-            needsAccessibility = true
-            clearHandlers()
-            onRelease()
-            return
-        }
-
-        let mask = [
-            CGEventType.keyDown,
-            .keyUp,
-            .flagsChanged,
-            .mouseMoved,
-            .leftMouseDown,
-            .leftMouseUp,
-            .leftMouseDragged,
-            .rightMouseDown,
-            .rightMouseUp,
-            .rightMouseDragged,
-            .otherMouseDown,
-            .otherMouseUp,
-            .otherMouseDragged,
-            .scrollWheel
-        ].reduce(CGEventMask(0)) { result, type in
-            result | (CGEventMask(1) << CGEventMask(type.rawValue))
-        }
-
-        let refcon = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
-        guard let tap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
-            place: .headInsertEventTap,
-            options: .defaultTap,
-            eventsOfInterest: mask,
-            callback: DirectInputController.eventTapCallback,
-            userInfo: refcon
-        ) else {
-            lastError = L10n.DirectInput.captureFailedString
-            clearHandlers()
-            onRelease()
-            return
-        }
-
-        eventTap = tap
-        runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-        if let runLoopSource {
-            CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
-        }
-        CGEvent.tapEnable(tap: tap, enable: true)
-        CGAssociateMouseAndMouseCursorPosition(boolean_t(0))
-        NSCursor.hide()
-        cursorHidden = true
+        sendKeyboard = hid.sendKeyboard
+        sendMouse = hid.sendMouse
         isCapturing = true
-        showStatusItem()
     }
 
     func stop() {
-        if let eventTap {
-            CGEvent.tapEnable(tap: eventTap, enable: false)
-        }
-        if let runLoopSource {
-            CFRunLoopRemoveSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
-        }
-        eventTap = nil
-        runLoopSource = nil
-
-        if cursorHidden {
-            NSCursor.unhide()
-            cursorHidden = false
-        }
-        CGAssociateMouseAndMouseCursorPosition(boolean_t(1))
-
         pressedKeys.removeAll()
         pressedMouseButtons = []
         modifiers = []
         sendKeyboard?(.zero)
         sendMouse?(.zero)
-        clearHandlers()
-        hideStatusItem()
+        sendKeyboard = nil
+        sendMouse = nil
         isCapturing = false
     }
 
-    func clearAccessibilityRequest() {
-        needsAccessibility = false
-    }
-
-    private func clearHandlers() {
-        sendKeyboard = nil
-        sendMouse = nil
-        onRelease = nil
-    }
-
-    /// menu bar warning shown while capturing, since the cursor is hidden and the window is unreachable
-    private func showStatusItem() {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        if let button = item.button {
-            let icon = NSImage(systemSymbolName: "keyboard", accessibilityDescription: nil)?
-                .withSymbolConfiguration(NSImage.SymbolConfiguration(paletteColors: [.systemRed]))
-            icon?.isTemplate = false
-            button.image = icon
-            button.imagePosition = .imageLeading
-            button.attributedTitle = NSAttributedString(
-                string: "  " + L10n.DirectInput.releaseHintString,
-                attributes: [.foregroundColor: NSColor.systemRed]
-            )
-        }
-        statusItem = item
-    }
-
-    private func hideStatusItem() {
-        if let statusItem {
-            NSStatusBar.system.removeStatusItem(statusItem)
-        }
-        statusItem = nil
-    }
-
-    private func handle(_ event: DirectInputEvent) {
-        if event.releaseShortcutPressed {
-            onRelease?()
-            stop()
-            return
-        }
+    func handle(_ event: DirectInputEvent) {
+        guard isCapturing else { return }
 
         modifiers = event.modifiers
 
@@ -190,31 +64,9 @@ final class DirectInputController: ObservableObject {
     private func sendKeyboardReport() {
         sendKeyboard?(KeyboardReport(modifiers: modifiers, keys: Array(pressedKeys).prefix(6).map(\.self)))
     }
-
-    private nonisolated static let eventTapCallback: CGEventTapCallBack = { _, type, cgEvent, userInfo in
-        guard type != .tapDisabledByTimeout, type != .tapDisabledByUserInput else {
-            if let userInfo {
-                let controller = Unmanaged<DirectInputController>.fromOpaque(userInfo).takeUnretainedValue()
-                Task { @MainActor in
-                    controller.eventTap.map { CGEvent.tapEnable(tap: $0, enable: true) }
-                }
-            }
-            return nil
-        }
-
-        guard let userInfo, let event = DirectInputEvent(type: type, event: cgEvent) else {
-            return nil
-        }
-
-        let controller = Unmanaged<DirectInputController>.fromOpaque(userInfo).takeUnretainedValue()
-        Task { @MainActor in
-            controller.handle(event)
-        }
-        return nil
-    }
 }
 
-private struct DirectInputEvent: Sendable {
+struct DirectInputEvent: Sendable {
     enum Kind: Sendable {
         case keyDown(Keycode)
         case keyUp(Keycode)
@@ -226,12 +78,10 @@ private struct DirectInputEvent: Sendable {
 
     let kind: Kind
     let modifiers: KeyboardModifiers
-    let releaseShortcutPressed: Bool
 
     init?(type: CGEventType, event: CGEvent) {
         let flags = event.flags
         modifiers = KeyboardModifiers(eventFlags: flags)
-        releaseShortcutPressed = flags.contains(.maskControl) && flags.contains(.maskAlternate)
 
         switch type {
         case .keyDown:

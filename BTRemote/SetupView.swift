@@ -10,7 +10,7 @@ struct SetupView: View {
     @AppStorage(AppSettings.advertisedNameKey) private var advertisedName = L10n.Bluetooth.advertisedName
     @State private var selectedInfo: DeviceEntry?
     @State private var showBluetoothOff = false
-    @EnvironmentObject private var directInput: DirectInputController
+    @EnvironmentObject private var coordinator: EdgeSwitchCoordinator
 
     @Environment(\.hid) private var hid
 
@@ -19,12 +19,6 @@ struct SetupView: View {
             form
                 .formStyle(.grouped)
                 .navigationTitle(L10n.App.title)
-        }
-        .onDisappear { directInput.stop() }
-        .onChange(of: hid.isActive) { isActive in
-            if !isActive {
-                directInput.stop()
-            }
         }
     }
 
@@ -189,11 +183,11 @@ struct SetupView: View {
     }
 
     private var directInputSection: some View {
-        Section(header: Text(L10n.DirectInput.section), footer: Text(L10n.DirectInput.releaseHint)) {
+        Section(header: Text(L10n.DirectInput.section), footer: Text(L10n.Layout.releaseHint)) {
             Toggle(isOn: directInputBinding) {
                 Label(L10n.DirectInput.toggle, systemImage: "rectangle.and.hand.point.up.left")
             }
-            if let lastError = directInput.lastError {
+            if let lastError = coordinator.lastError {
                 Text(verbatim: lastError)
                     .font(.caption)
                     .foregroundColor(.red)
@@ -202,16 +196,7 @@ struct SetupView: View {
     }
 
     private var directInputBinding: Binding<Bool> {
-        Binding(
-            get: { directInput.isCapturing },
-            set: { shouldCapture in
-                if shouldCapture {
-                    directInput.start(hid)
-                } else {
-                    directInput.stop()
-                }
-            }
-        )
+        Binding(get: { coordinator.isRemote }, set: { _ in coordinator.toggle() })
     }
 
     private func row(_ title: LocalizedStringKey, _ value: Text) -> some View {
@@ -252,13 +237,3 @@ private extension KeyboardLEDs {
         return parts.isEmpty ? L10n.Value.noneString : ListFormatter.localizedString(byJoining: parts)
     }
 }
-
-#if DEBUG
-    #Preview {
-        SetupView()
-            .environmentObject(HIDPeripheral())
-            .environmentObject(HIDCentral())
-            .environmentObject(DeviceNameStore())
-            .environmentObject(DirectInputController())
-    }
-#endif

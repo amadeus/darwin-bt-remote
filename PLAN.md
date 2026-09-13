@@ -865,3 +865,29 @@ Nothing else is open; the rest is engineering.
 - Signing correction: the installed certificate has OU/team UHD99KF9X7;
   J972UZ26TC in its display name is not the development team. Use the actual
   certificate team and explicit Apple Development identity.
+
+- M0 complete: macOS-only app, Classic removal, sandbox removal, localization
+  lint repair, standalone unit tests, verified development signing, and macOS CI.
+- M2 implementation: app-owned coordinator, single dedicated-thread tap,
+  exposed-edge geometry, release-before-switch gate, local configurable toggle,
+  background cursor panel, settings, and persistent menu-bar controls. The
+  existing input translation, HID reports, descriptor and peripheral send path
+  are preserved. Setup/verification steps are in docs/M2-CHECKPOINT.md.
+- Eight focused tests and signed Debug build pass; formatter and strict lint
+  pass. Both `build test` actions are needed because the unit-test target is
+  standalone. S3–S5 and Windows companion implementation remain for M3.
+- S1 preliminary diagnostic: the private background property resolves and
+  hide/show calls return success, but disassociation alone did not keep the
+  background cursor parked. The implementation therefore uses the planned
+  active-tap suppression plus per-motion parking path. Live validation of that
+  combined path and S2 physical edge deltas remains part of this checkpoint.
+  Until pinned deltas are verified, edge detection also supports arrival plus
+  dwell, as permitted by S2's fallback.
+- Accessibility: TCC logs confirm the old grant belongs to the upstream signing
+  identity, while this worktree uses Amadeus's development identity. The exact
+  built app must be added in Accessibility before live capture can be verified.
+- Handoff detail: the dwell timer commits only after the final input-release
+  callback has returned, so that release is routed to the old machine. The tap
+  makes the suppression decision synchronously; ordered main-queue messages
+  perform AppKit cursor setup and the unchanged report translation. Normal
+  returns use the local hotkey; no recovery helper process is installed.

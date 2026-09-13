@@ -1,20 +1,33 @@
 # BTRemote for macOS
 
-This personal fork keeps the existing Bluetooth LE HID remote-control backend
-and adds Mac-to-PC edge switching. See [PLAN.md](PLAN.md) for milestones.
-The iOS target and Bluetooth Classic backend have been removed. Pair the Mac
-from Windows Bluetooth Settings and use the app's existing Direct Input mode.
+This personal fork adds **Mac edge → Windows control → local hotkey return** to
+[jqssun/darwin-bt-remote](https://github.com/jqssun/darwin-bt-remote). It uses the
+existing Bluetooth LE HID backend and report format. No Windows companion is
+needed for this checkpoint; PC-side edge return and clipboard sharing come later.
 
-The HID descriptor and BLE notification behavior are unchanged. No Windows
-companion is needed for the upcoming edge-out / hotkey-back checkpoint.
+## Build and try
 
-## Build
+Install Xcode and `xcodegen`, `swiftformat`, `swiftlint`, and `xcbeautify`, then run:
 
-Use Xcode and `xcodegen`, `swiftformat`, `swiftlint`, and `xcbeautify`.
-Run `./build.sh` from this directory. Local development signing is configured
-in `project.yml`.
+```sh
+./build.sh
+open .build/DerivedData/Build/Products/Debug/BTRemote.app
+```
 
-## Upstream and license
+Allow Bluetooth and Accessibility, pair from Windows Bluetooth Settings, then
+choose the Mac display/edge in **Layout** and enable edge switching. Use
+**Fn + Escape**, or record another toggle shortcut, to return. Normal switches
+wait for held keys and buttons to be released. The controls remain available
+from the menu-bar icon after the window closes.
 
-Based on [jqssun/darwin-bt-remote](https://github.com/jqssun/darwin-bt-remote).
-Licensed under [AGPL-3.0-only](LICENSE); preserve upstream license obligations.
+See [the checkpoint guide](docs/M2-CHECKPOINT.md) for setup and testing, and
+[PLAN.md](PLAN.md) for the implementation scope and later milestones.
+
+The iOS target and Bluetooth Classic backend have been removed. The BLE
+peripheral, HID descriptor, and report encoding are preserved; core changes are
+driven by problems found during testing.
+
+## License
+
+Based on the upstream BTRemote project. Licensed under
+[AGPL-3.0-only](LICENSE); preserve upstream license obligations.
