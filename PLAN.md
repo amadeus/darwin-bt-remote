@@ -900,3 +900,7 @@ Nothing else is open; the rest is engineering.
 - Next requested behavior: proportional Windows cursor placement on edge entry,
   already specified in M3. The current relative HID reports cannot set a screen
   coordinate; the planned companion's ENTER handler supplies that placement.
+- Reconnect checkpoint issue: normal Mac app quit/relaunch loses the Windows
+  HID subscription and currently requires re-pairing. Enabling peripheral state
+  restoration did not fix normal quit and was reverted. Evidence and remaining
+  Windows-side checks are in docs/BLUETOOTH-RECONNECT.md; this remains unresolved.
