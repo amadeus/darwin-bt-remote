@@ -503,6 +503,7 @@ After HELLO each side uses `min(own chunk, peer chunk)`.
 | `0x13` | LEAVE       | PC→Mac    | `switchId u8, edge u8, frac u16` (id of the ENTER being returned from)                   |
 | `0x15` | EXIT        | Mac→PC    | `switchId u8`; cancel the current PC edge detector after any Mac-local return             |
 | `0x16` | RESUME      | Mac→PC    | `switchId u8, edge u8`; restore current ownership without cursor placement; capability-gated |
+| `0x17` | ENTER_CENTER | Mac→PC | `switchId u8, edge u8`; center the selected display for explicit hotkey/button entry; PC HELLO `center:true` required |
 | `0x14` | STATE       | PC→Mac    | `blind u8, desktop u8, macMousePresent u8` every 3 s                                     |
 | `0x20` | CLIP_GRAB   | both      | `epoch u32, seq u32, bytes u32`; 0xffffffff withdraws an offer                       |
 | `0x21` | CLIP_GET    | both      | `epoch u32, seq u32, offset u32`; request one 1024-byte block                         |
@@ -833,6 +834,10 @@ M3), and the way back is the toggle hotkey or an automatic release. Rule 8 in
 
 ### M4 — Clipboard v1, text over BLE
 
+- **Status:** implemented; Amadeus confirmed live copy/paste works well in both
+  follow-up reports on 2026-09-14. Move on to M5. The specific stress/privacy
+  checks below have automated coverage but were not individually confirmed.
+
 - `ClipboardWatcher` on both sides, `CLIP_GRAB`/`CLIP_GET`/bulk stream, echo
   suppression, transient/concealed skipping, 64 KiB cap, sequence numbers.
 - Exit: copy on either machine, paste on the other, no ping-pong loops, secrets
@@ -842,6 +847,18 @@ M3), and the way back is the toggle hotkey or an automatic release. Rule 8 in
   manager behavior using a disposable test value, since markers vary by app.
 
 ### M5 — Feel and polish
+
+- **Current implementation (2026-09-14):** explicit-switch centering, in-app
+  Windows pairing, complete Windows removal, Windows tray startup, optional Mac
+  login startup and the Mac enable/disable control are implemented. Builds and
+  automated tests are the validation for this pass; native interaction testing
+  is deferred to Amadeus this evening. No app was launched/restarted and no
+  computer-use tests were performed during implementation.
+- **Mac enable/disable:** Settings and menu bar share one persisted enabled
+  state. Disabling restores local input, stops advertising/capture/scanning and
+  clipboard/control exchange; the menu icon changes to a pause symbol. Keep
+  allowed devices and OS pairings. Enabling restores the saved setup and lets
+  the Windows service reconnect. Disabled state survives app restart/login.
 
 - Input feel: address only problems reported at checkpoints. Horizontal
   scrolling, alternate scroll accumulation, wider movement reports, added key
@@ -1405,8 +1422,39 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   announcements, privacy policy, revision tracking and shared wire fixtures.
 - Per the overnight work boundary, neither application was launched/restarted,
   no computer-use tools were used and the system clipboard was not accessed.
-  The M4 manual checkpoint remains pending for the user's morning test.
+  Subsequently, Amadeus confirmed live copy/paste works well (2026-09-14).
 - Validation: signed Mac build and 62 Swift tests pass; Windows solution builds
   with zero warnings/errors and 64 core tests pass. SwiftFormat and strict
   SwiftLint pass. The self-contained win-x64 ZIP is published and verified.
-  Native clipboard behavior and hardware transfer timing remain untested.
+  Live copy/paste is now user-confirmed. Specific large-payload/privacy/session
+  checks and measured hardware transfer timing were not individually reported.
+
+
+### M5 implementation details — 2026-09-14
+
+- Added capability-gated ENTER_CENTER (0x17, switchId u8 + edge u8). Explicit
+  hotkey/button entry centers the selected Windows monitor in physical pixels;
+  edge entry remains proportional, and RESUME still avoids repositioning.
+  Legacy companions retain their prior entry behavior until updated.
+- Windows setup uses Connect a Mac / Change Mac. Discover AEP candidates, reuse
+  existing bonds, let Windows handle pairing consent/PINs, verify HID plus the
+  BTRemote GATT service, then save. Verification/save failure rolls back only a
+  bond created by that attempt; the previous selected Mac stays configured.
+- Removal stops workers/service, removes only the selected Mac pairing, service
+  registration, event-source registration, startup entry, shortcut, settings/logs,
+  installed files and standard BTRemote .NET extraction caches. A built-in
+  PowerShell process finishes file deletion after the EXE exits, without writing
+  a helper script. Failures are reported and preserve a retry marker; opening
+  the downloaded EXE again offers to finish removal. OS execution/security
+  history and the downloaded EXE/ZIP are outside app-managed removal.
+- Tray startup is a separate machine-wide Run entry, initially enabled on this
+  update, then preserved across updates. It launches only the icon, never
+  starts/stops the service, and does not reopen Settings in an existing tray.
+  Mac startup uses SMAppService.mainApp and is opt-in with actual OS status.
+- Disable/re-enable serializes tap lifetimes and rejects late readiness events
+  from a stopped tap. Bluetooth/input settings and pairings are preserved.
+- See docs/POLISH.md for update instructions, manual checks and validation scope.
+- Validation: signed Mac build, 65 Swift tests, strict SwiftLint and SwiftFormat
+  pass. Windows solution builds with zero warnings/errors; 79 core tests and
+  three disposable-file cleanup tests pass locally. The current win-x64 ZIP
+  is published and verified. Native Windows lifecycle/GUI tests were not run.

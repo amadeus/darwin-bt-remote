@@ -4,8 +4,10 @@ The service owns Bluetooth recovery, switching and plain-text clipboard
 coordination. It launches the desktop worker; the optional tray configures the
 service. Closing the tray leaves switching and clipboard sharing running.
 
-This build adds **text clipboard sharing in both directions**, up to 64 KiB per
-copy. Update both the Windows companion and Mac app; keep the existing pairing.
+This build adds in-app Mac pairing, complete removal and tray startup at login.
+It also supports centered hotkey/button entry with the matching Mac build.
+Text clipboard sharing works in both directions, up to 64 KiB per copy.
+Update both apps; keep the existing pairing unless testing removal.
 Clipboard sharing pauses while locked or signed out. Login control remains
 independent of the clipboard feature.
 
@@ -15,8 +17,11 @@ independent of the clipboard feature.
 2. Extract the ZIP and open **BTRemote.Companion.exe**. Approve the Windows
    administrator prompt to install or update; the companion window opens
    automatically afterward. No scripts or .NET installation are needed.
-3. On first setup, select the paired Mac and click **Use selected Mac**; approve
-   the configuration change. Updates retain your existing selection.
+3. On first setup, click **Connect a Mac…**, choose your Mac and approve any
+   Windows/Mac pairing prompts. Keep BTRemote enabled on the Mac; it advertises
+   when no allowed PC is ready. The companion verifies BTRemote before saving.
+   Allow input for this PC on the Mac if needed. Updates retain your selection;
+   use **Change Mac…** to select a different Mac or reuse an existing pairing.
 4. Run the matching new Mac build. In **Layout → Windows**, wait for **Windows
    edge return ready**. Choose the PC display there if its primary display is
    not the one next to your Mac. The PC uses the edge opposite the Mac edge.
@@ -48,6 +53,13 @@ third-party servers are used at runtime.
   versus Manual startup for future boots without starting/stopping it now. A
   manually started service survives logout in either mode. An intentional Stop
   is respected until Start or the next boot with automatic startup enabled.
+- **Show tray icon at sign-in:** open only the optional tray after users sign
+  in. Enabled once on this upgrade, then preserved across updates. Independent
+  of the service-startup checkbox; it does not start a stopped service.
+- **Remove BTRemote from this PC…:** complete removal, including the selected
+  Mac pairing, service/workers, startup entry, shortcut, settings/logs and
+  installed files. Wait for the final result message. If it fails, reopen the
+  downloaded EXE to retry. Other pairings and Windows execution history remain.
 - **Quit Tray:** close the optional UI, leaving the service running.
 
 Service/configuration changes request administrator permission. Opening settings
@@ -96,8 +108,8 @@ cursor should stay where you left it when the desktop worker becomes ready.
 Also check that using the Mac hotkey before the worker is ready prevents a late
 return event after login. Amadeus confirmed login behavior works; this checklist remains useful for regressions.
 
-Tray auto-launch after login is deferred to final polish; the service and
-desktop worker operate without the tray open.
+The tray can now auto-launch after login; the service and desktop worker still
+operate without it. Login launch does not open a settings window.
 
 Use **Open diagnostics** in the tray for `status.json` and `service.log` in
 `C:\ProgramData\BTRemote`. Logs include discovery results, HRESULTs, desktop
@@ -137,8 +149,24 @@ preserved. First installation starts the service with automatic startup enabled.
 The UI runs with the permissions of the user who opened it; only installation
 and service changes request administrator permission.
 
-The repository retains `windows/packaging/Uninstall.cmd` for removing the
-service during development; it is not part of the end-user ZIP.
+Use the **Remove BTRemote from this PC…** button/menu for removal. No separate
+uninstall script is needed. It deliberately removes the selected Windows pairing;
+the Mac's allow list and downloaded EXE/ZIP remain unchanged.
+
+## New Mac controls
+
+The configured hotkey and **Switch to PC** button center the Windows pointer on
+the selected display. Edge crossings retain proportional placement. Both builds
+are required; existing pairings and the HID descriptor are unchanged.
+
+Mac Settings and its menu now share **Disable BTRemote / Enable BTRemote**.
+Disabling restores local control, stops advertising/input capture/clipboard
+sharing, and changes the menu icon to a pause symbol. This state survives app
+restart. Enable to reconnect using the saved pairing. Mac Settings also offers
+an opt-in **Launch BTRemote at login** control.
+
+For the complete test sequence, see `docs/POLISH.md` in the repository. Test
+removal last because it intentionally removes the selected Mac pairing.
 
 ## Build
 

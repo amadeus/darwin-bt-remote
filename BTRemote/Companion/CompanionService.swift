@@ -18,6 +18,7 @@ final class CompanionService: ObservableObject {
     private var controls: [Queued] = []
     private var bulk: [Queued] = []
     private var blocked = false
+    private var enabled = true
     private var chars: [CBMutableCharacteristic] = []
     var diagnosticState: String {
         "queued=\(controls.count + bulk.count) blocked=\(blocked)"
@@ -34,6 +35,7 @@ final class CompanionService: ObservableObject {
         var bulkDecoder = CompanionProtocol.Decoder()
         var helloSent = false
         var supportsResume = false
+        var supportsCenter = false
         var supportsClipboard = false
     }
 
@@ -61,6 +63,14 @@ final class CompanionService: ObservableObject {
         return service
     }
 
+    func setEnabled(_ value: Bool) {
+        enabled = value
+        if !value {
+            clients.removeAll(); ready.removeAll(); monitors.removeAll(); blind.removeAll(); lastSeen.removeAll()
+            controls.removeAll(); bulk.removeAll()
+        }
+    }
+
     func reset() {
         clients.removeAll(); ready.removeAll(); monitors.removeAll(); blind.removeAll(); lastSeen.removeAll()
         controls.removeAll(); bulk.removeAll(); chars.removeAll(); blocked = false; manager = nil
@@ -71,6 +81,7 @@ final class CompanionService: ObservableObject {
     }
 
     func subscribed(_ central: CBCentral, _ characteristic: CBCharacteristic) {
+        guard enabled else { return }
         guard let index = chars.firstIndex(where: { $0.uuid == characteristic.uuid }) else { return }
         var client = clients[central.identifier] ?? Client(central: central)
         client.subscriptions.insert(index)
@@ -94,7 +105,7 @@ final class CompanionService: ObservableObject {
     }
 
     func receive(_ request: CBATTRequest) -> CBATTError.Code {
-        guard request.offset == 0, let value = request.value,
+        guard enabled, request.offset == 0, let value = request.value,
               let index = chars.firstIndex(where: { $0.uuid == request.characteristic.uuid }),
               index == 1 || index == 3, var client = clients[request.central.identifier] else { return .writeNotPermitted }
         do {
@@ -165,6 +176,7 @@ final class CompanionService: ObservableObject {
         guard hello.v == 1, hello.role == "pc", hello.chunk >= 20,
               clients[id]?.helloSent == true else { throw CompanionProtocol.Failure.malformed }
         clients[id]?.supportsResume = hello.resume == true
+        clients[id]?.supportsCenter = hello.center == true
         clients[id]?.supportsClipboard = hello.clipboard == 1
         ready.insert(id)
         lastSeen[id] = ProcessInfo.processInfo.systemUptime
@@ -182,6 +194,10 @@ final class CompanionService: ObservableObject {
 
     func supportsResume(_ id: UUID) -> Bool {
         ready.contains(id) && clients[id]?.supportsResume == true
+    }
+
+    func supportsCenter(_ id: UUID) -> Bool {
+        ready.contains(id) && clients[id]?.supportsCenter == true
     }
 
     func supportsClipboard(_ id: UUID) -> Bool {
@@ -208,7 +224,7 @@ final class CompanionService: ObservableObject {
     }
 
     private func enqueue(_ type: CompanionProtocol.Message, stream: UInt8, payload: Data, to id: UUID) {
-        guard var client = clients[id], payload.count <= CompanionProtocol.maximumPayload else { return }
+        guard enabled, var client = clients[id], payload.count <= CompanionProtocol.maximumPayload else { return }
         let packet = CompanionProtocol.Packet(stream: stream, type: type.rawValue, payload: payload)
         let frames = stream == 0 ? client.controlEncoder.encode(packet) : client.bulkEncoder.encode(packet)
         clients[id] = client
@@ -223,7 +239,7 @@ final class CompanionService: ObservableObject {
     }
 
     private func drain() {
-        guard let manager, !blocked else { return }
+        guard enabled, let manager, !blocked else { return }
         while let item = controls.first ?? bulk.first {
             guard manager.updateValue(item.data, for: chars[item.index], onSubscribedCentrals: [item.central]) else {
                 blocked = true

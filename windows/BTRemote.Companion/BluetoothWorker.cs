@@ -62,7 +62,7 @@ internal sealed class BluetoothWorker : ApplicationContext
                     var info = await DeviceInformation.CreateFromIdAsync(settings.DeviceId,
                         ["System.Devices.Aep.IsPaired"], DeviceInformationKind.AssociationEndpoint).AsTask(stop);
                     if (!info.Pairing.IsPaired)
-                        throw new InvalidOperationException("The saved endpoint is no longer paired. Select the paired Mac again.");
+                        throw new InvalidOperationException("The saved endpoint is no longer paired. Use Change Mac in BTRemote Companion to reconnect.");
                     // executed on the STA message-loop thread, never Task.Run.
                     device = await BluetoothLEDevice.FromIdAsync(settings.DeviceId).AsTask(stop)
                         ?? throw new InvalidOperationException("Windows denied service-account access to this BLE endpoint.");

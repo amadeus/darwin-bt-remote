@@ -12,6 +12,10 @@ struct HIDHostPolicy: Equatable {
         target == nil
     }
 
+    func shouldAdvertise(enabled: Bool, poweredOn: Bool, serviceAdded: Bool) -> Bool {
+        enabled && poweredOn && serviceAdded && needsAdvertising
+    }
+
     static func inputReady(_ inputs: Set<Input>) -> Bool {
         inputs.isSuperset(of: [.mouse, .keyboard]) || inputs.isSuperset(of: [.bootMouse, .bootKeyboard])
     }

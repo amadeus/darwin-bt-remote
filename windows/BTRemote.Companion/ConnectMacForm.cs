@@ -1,0 +1,98 @@
+using BTRemote.Companion.Core;
+using Windows.Devices.Enumeration;
+
+namespace BTRemote.Companion;
+
+internal sealed class ConnectMacForm : Form
+{
+    private readonly Dictionary<string, DeviceInformation> found = new(StringComparer.Ordinal);
+    private readonly ListBox devices = new() { Dock = DockStyle.Fill, IntegralHeight = false };
+    private readonly Button connect = new() { Text = "Connect", AutoSize = true, Enabled = false };
+    private readonly Button rescan = new() { Text = "Search again", AutoSize = true };
+    private readonly Button cancel = new() { Text = "Cancel", AutoSize = true };
+    private readonly Label status = new() { AutoSize = true, Dock = DockStyle.Fill, MaximumSize = new Size(490, 0) };
+    private readonly CancellationTokenSource stop = new();
+    private DeviceWatcher? watcher;
+    private bool busy, closing;
+    public ConnectMacForm()
+    {
+        Text = "Connect a Mac"; AutoScaleMode = AutoScaleMode.Dpi;
+        ClientSize = new Size(540, 440); MinimumSize = new Size(480, 400); StartPosition = FormStartPosition.CenterParent;
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(16), ColumnCount = 1, RowCount = 4 };
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.Controls.Add(new Label { Text = "Enable BTRemote on your Mac, then choose it below. Other Bluetooth devices may appear.", AutoSize = true, MaximumSize = new Size(490, 0) });
+        layout.Controls.Add(devices); layout.Controls.Add(status);
+        var buttons = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill };
+        buttons.Controls.Add(connect); buttons.Controls.Add(rescan); buttons.Controls.Add(cancel); layout.Controls.Add(buttons);
+        Controls.Add(layout); AcceptButton = connect; CancelButton = cancel;
+        devices.SelectedIndexChanged += (_, _) => connect.Enabled = !busy && devices.SelectedItem is MacCandidate;
+        connect.Click += async (_, _) => await ConnectAsync();
+        rescan.Click += (_, _) => Search(); cancel.Click += (_, _) => Close();
+        Shown += (_, _) => Search();
+        FormClosing += (_, args) =>
+        {
+            StopSearch();
+            if (busy) { args.Cancel = true; closing = true; stop.Cancel(); status.Text = "Cancelling… Finish or dismiss any Windows pairing prompt."; }
+        };
+    }
+    private void Post(DeviceWatcher sender, Action action)
+    {
+        if (IsDisposed || !IsHandleCreated) return;
+        try { BeginInvoke(() => { if (!IsDisposed && watcher == sender && !busy) action(); }); }
+        catch (InvalidOperationException) { }
+    }
+    private void Search()
+    {
+        StopSearch(); found.Clear(); devices.Items.Clear(); status.Text = "Searching for nearby and already paired devices…";
+        try
+        {
+            watcher = DeviceInformation.CreateWatcher(MacPairing.Selector, MacPairing.Properties, DeviceInformationKind.AssociationEndpoint);
+            watcher.Added += (sender, info) => Post(sender, () => { found[info.Id] = info; Render(); });
+            watcher.Updated += (sender, update) => Post(sender, () => { if (found.TryGetValue(update.Id, out var info)) info.Update(update); Render(); });
+            watcher.Removed += (sender, update) => Post(sender, () => { found.Remove(update.Id); Render(); });
+            watcher.EnumerationCompleted += (sender, _) => Post(sender, () => status.Text = "Choose your Mac. If it is missing, check that BTRemote is advertising.");
+            watcher.Stopped += (sender, _) => Post(sender, () => status.Text = "Search stopped. Check Windows Bluetooth and choose Search again.");
+            watcher.Start();
+        }
+        catch (Exception error) { status.Text = error.Message; StopSearch(); }
+    }
+    private void Render()
+    {
+        var selected = (devices.SelectedItem as MacCandidate)?.Id;
+        var items = MacCandidates.Visible(found.Values.Select(info => new MacCandidate(info.Id, info.Name,
+            info.Properties.TryGetValue("System.Devices.Aep.DeviceAddress", out var address) ? address as string : null, info.Pairing.IsPaired)));
+        devices.BeginUpdate(); devices.Items.Clear(); devices.Items.AddRange(items);
+        devices.SelectedIndex = Array.FindIndex(items, item => item.Id == selected); devices.EndUpdate();
+    }
+    private void StopSearch()
+    {
+        var old = watcher; watcher = null;
+        if (old?.Status is DeviceWatcherStatus.Started or DeviceWatcherStatus.EnumerationCompleted) old.Stop();
+    }
+    private async Task ConnectAsync()
+    {
+        if (busy || devices.SelectedItem is not MacCandidate candidate) return;
+        busy = true; connect.Enabled = rescan.Enabled = devices.Enabled = false; StopSearch();
+        try
+        {
+            await MacConnection.Connect(new MacPairing(candidate, message => status.Text = message, stop.Token));
+            DialogResult = DialogResult.OK;
+        }
+        catch (OperationCanceledException) { status.Text = "Connection cancelled or timed out. Your previous Mac selection is unchanged."; }
+        catch (Exception error) { status.Text = error.Message; }
+        finally
+        {
+            busy = false;
+            if (DialogResult == DialogResult.OK || closing) Close();
+            else { connect.Enabled = rescan.Enabled = devices.Enabled = true; }
+        }
+    }
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) { StopSearch(); stop.Dispose(); }
+        base.Dispose(disposing);
+    }
+}

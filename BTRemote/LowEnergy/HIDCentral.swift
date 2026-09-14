@@ -16,6 +16,7 @@ final class HIDCentral: NSObject, ObservableObject {
     static let restoreIdentifier = "BTRemote.central.v1"
 
     private let log = Logger(subsystem: "io.github.jqssun.btremote", category: "HIDCentral")
+    private var enabled = true
     private var centralManager: CBCentralManager?
     private var peripheralCache: [UUID: CBPeripheral] = [:]
 
@@ -25,8 +26,13 @@ final class HIDCentral: NSObject, ObservableObject {
         log.info("\(text, privacy: .public)")
     }
 
+    func setEnabled(_ value: Bool) {
+        enabled = value
+        if value { start() } else { stopScan() }
+    }
+
     func start() {
-        guard centralManager == nil else { return }
+        guard enabled, centralManager == nil else { return }
         centralManager = CBCentralManager(
             delegate: self,
             queue: nil,
@@ -38,6 +44,7 @@ final class HIDCentral: NSObject, ObservableObject {
     }
 
     func startScan() {
+        guard enabled else { return }
         guard let centralManager, centralManager.state == .poweredOn else {
             start()
             return
@@ -58,7 +65,7 @@ final class HIDCentral: NSObject, ObservableObject {
     }
 
     func connect(_ identifier: UUID) {
-        guard let centralManager else { return }
+        guard enabled, let centralManager else { return }
         let peripheral = peripheralCache[identifier]
             ?? centralManager.retrievePeripherals(withIdentifiers: [identifier]).first
         guard let peripheral else {

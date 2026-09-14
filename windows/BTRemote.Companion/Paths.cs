@@ -10,5 +10,7 @@ internal static class Paths
     public static string Log => Path.Combine(DataDirectory, "service.log");
     public static string InstallDirectory => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "BTRemote Companion");
+    public static string Shortcut => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms), "BTRemote Companion.lnk");
+    public static string RemovalMarker => Path.Combine(InstallDirectory, "removal-pending");
     public static string InstalledExe => Path.Combine(InstallDirectory, "BTRemote.Companion.exe");
 }

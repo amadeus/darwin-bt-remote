@@ -31,6 +31,7 @@ final class HIDPeripheral: NSObject, ObservableObject {
     private var batteryServiceObj: CBMutableService?
     private var deviceInfoServiceObj: CBMutableService?
     private var hidServiceObj: CBMutableService?
+    var isEnabled = true
     var isHIDServiceAllowed = false
     private var isReadyToSendNotification = true
 
@@ -44,12 +45,13 @@ final class HIDPeripheral: NSObject, ObservableObject {
     private static let serviceChangedGrace: UInt64 = 2_000_000_000
 
     /// last-sent payloads for reads and new subscriptions
-    private var cachedReports = HIDPeripheral.emptyReports
+    var cachedReports = HIDPeripheral.emptyReports
 
-    private var pendingBroadcasts = HIDNotificationQueue<CBMutableCharacteristic>()
-    private var cachedBootMouseReport = MouseReport.zero.bootData
+    var pendingBroadcasts = HIDNotificationQueue<CBMutableCharacteristic>()
+    var cachedBootMouseReport = MouseReport.zero.bootData
 
     func start() {
+        guard isEnabled else { return }
         companion.clipboardTarget = { [weak self] in self?.hostPolicy.target }
         isHIDServiceAllowed = true
         if pManager == nil {
@@ -65,13 +67,6 @@ final class HIDPeripheral: NSObject, ObservableObject {
                 installServices()
             }
         }
-    }
-
-    func stop() {
-        isHIDServiceAllowed = false
-        advertisingStarting = false
-        pManager?.stopAdvertising()
-        isAdvertising = false
     }
 
     func promptPowerAlert() {
@@ -151,12 +146,12 @@ final class HIDPeripheral: NSObject, ObservableObject {
     }
 
     private func _cycleServiceChangedIfUnsubscribed() {
-        guard subscribedCentrals.isEmpty else { return }
+        guard isEnabled, subscribedCentrals.isEmpty else { return }
         _cycleServiceChanged()
     }
 
     private func _cycleServiceChanged() {
-        guard let pManager else { return }
+        guard isEnabled, let pManager else { return }
         if let svc = serviceChangedObj {
             pManager.remove(svc)
             pManager.add(svc)
@@ -350,6 +345,7 @@ final class HIDPeripheral: NSObject, ObservableObject {
     }
 
     private func broadcast(_ data: Data, reportID: ReportID, coalesceMotion: Bool = false) {
+        guard isEnabled else { return }
         cachedReports[reportID.rawValue] = data
         guard let char = charsByReportID[reportID.rawValue] else { return }
         _ = updateValue(data, for: char, coalesceMotion: coalesceMotion)

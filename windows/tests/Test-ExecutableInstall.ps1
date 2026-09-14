@@ -7,10 +7,13 @@ $source = (Resolve-Path -LiteralPath $Executable).Path
 $install = Join-Path $env:ProgramFiles 'BTRemote Companion'
 $binary = Join-Path $install 'BTRemote.Companion.exe'
 $data = Join-Path $env:ProgramData 'BTRemote'
+$runKey = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run'
+$runName = 'BTRemoteCompanion'
 $shortcut = Join-Path ([Environment]::GetFolderPath('CommonPrograms')) 'BTRemote Companion.lnk'
 if ((Get-Service BTRemoteCompanion -ErrorAction SilentlyContinue) -or
     (Test-Path -LiteralPath $install) -or (Test-Path -LiteralPath $data) -or
-    (Test-Path -LiteralPath $shortcut)) {
+    (Test-Path -LiteralPath $shortcut) -or
+    (Get-ItemPropertyValue -LiteralPath $runKey -Name $runName -ErrorAction SilentlyContinue)) {
     throw 'This test requires a clean machine without an existing BTRemote installation.'
 }
 function Start-CompanionProcess {
@@ -20,6 +23,7 @@ function Start-CompanionProcess {
     $start = [Diagnostics.ProcessStartInfo]::new()
     $start.FileName = $Path
     $start.UseShellExecute = $false
+    $start.RedirectStandardError = $true
     # All test arguments are fixed switches or the literal "manual".
     if ($Command | Where-Object { $_ -notmatch '^[a-z-]+$' }) { throw 'Unexpected test argument.' }
     $start.Arguments = $Command -join ' '
@@ -33,13 +37,15 @@ function Stop-CompanionProcess {
 function Invoke-Companion {
     param([string] $Path, [string[]] $Command)
     Write-Host "Running companion: $Command"
+    if ($Command -notcontains '--quiet') { $Command += '--quiet' }
     $process = Start-CompanionProcess $Path $Command
+    $errorOutput = $process.StandardError.ReadToEndAsync()
     try {
         if (-not $process.WaitForExit(60000)) {
             Stop-CompanionProcess $process
             throw "Companion timed out: $Command"
         }
-        if ($process.ExitCode -ne 0) { throw "Companion failed ($($process.ExitCode)): $Command" }
+        if ($process.ExitCode -ne 0) { throw "Companion failed ($($process.ExitCode)): $Command`n$($errorOutput.GetAwaiter().GetResult())" }
         Write-Host "Completed companion: $Command"
     } finally { $process.Dispose() }
 }
@@ -72,6 +78,9 @@ try {
     Invoke-Companion $source @('--install')
     Assert-Service 'Running' 'Automatic'
     if (-not (Test-Path -LiteralPath $shortcut)) { throw 'Missing Start menu shortcut.' }
+    if ((Get-ItemPropertyValue -LiteralPath $runKey -Name $runName) -ne ('"' + $binary + '" --tray')) { throw 'Missing tray startup registration.' }
+    Invoke-Companion $binary @('--tray-startup', 'off')
+    if (Get-ItemPropertyValue -LiteralPath $runKey -Name $runName -ErrorAction SilentlyContinue) { throw 'Tray startup was not disabled.' }
     foreach ($directory in @($install, $data)) {
         $acl = Get-Acl -LiteralPath $directory
         if (-not $acl.AreAccessRulesProtected) { throw "Unprotected directory: $directory" }
@@ -99,6 +108,7 @@ try {
         if (-not $tray.WaitForExit(10000)) { throw 'Update did not close the previous tray.' }
     } finally { $tray.Dispose() }
     Assert-Service 'Stopped' 'Manual'
+    if (Get-ItemPropertyValue -LiteralPath $runKey -Name $runName -ErrorAction SilentlyContinue) { throw 'Update re-enabled tray startup.' }
     if ((Get-FileHash -LiteralPath $settings).Hash -ne $before) { throw 'Update changed the selected Mac.' }
     if ((Get-FileHash -LiteralPath $binary).Hash -ne (Get-FileHash -LiteralPath $source).Hash) { throw 'Wrong installed EXE.' }
     Remove-Item -LiteralPath $settings
@@ -107,6 +117,14 @@ try {
     Assert-Service 'Running' 'Manual'
     Invoke-Companion $binary @('--stop')
     # An identical downloaded EXE should just open the installed window; no install.
+    Write-Host 'Checking quiet tray startup before downloaded EXE handoff.'
+    $quietTray = Start-CompanionProcess $binary @('--tray')
+    try {
+        if (-not $quietTray.WaitForInputIdle(10000)) { throw 'Tray did not initialize its message loop.' }
+        $quietTray.Refresh()
+        if ($quietTray.HasExited -or $quietTray.MainWindowHandle -ne [IntPtr]::Zero) { throw 'Login startup opened a settings window or exited.' }
+    } finally { $quietTray.Dispose() }
+    Assert-Service 'Stopped' 'Manual'
     Write-Host 'Checking downloaded EXE handoff and settings reopening.'
     $launcher = Start-CompanionProcess $source
     try {
@@ -125,7 +143,19 @@ try {
         } finally { $again.Dispose() }
         Wait-CompanionWindow $tray[0] $true
     } finally { $tray[0].Dispose() }
-    Write-Host 'EXE installation, update, state preservation, permissions and service controls passed.'
+    Write-Host 'Checking complete removal with no saved pairing (no Bluetooth hardware required).'
+    Invoke-Companion $binary @('--tray-startup', 'on')
+    Invoke-Companion $binary @('--remove', '--quiet')
+    $removalTimer = [Diagnostics.Stopwatch]::StartNew()
+    while ((Test-Path -LiteralPath $install) -or (Test-Path -LiteralPath $data)) {
+        if ($removalTimer.Elapsed.TotalSeconds -gt 60) { throw 'Removal did not delete its installed files and data.' }
+        Start-Sleep -Milliseconds 100
+    }
+    if (Get-Service BTRemoteCompanion -ErrorAction SilentlyContinue) { throw 'Removal left the service registered.' }
+    if (Test-Path -LiteralPath $shortcut) { throw 'Removal left the shortcut.' }
+    if (Get-ItemPropertyValue -LiteralPath $runKey -Name $runName -ErrorAction SilentlyContinue) { throw 'Removal left tray startup enabled.' }
+    if (Test-Path -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\BTRemoteCompanion') { throw 'Removal left its event-source registration.' }
+    Write-Host 'EXE installation, update, startup, reopening and removal passed.'
 } catch {
     $failure = $_
     Write-Host "Lifecycle test failed before cleanup: $($_ | Out-String)"
@@ -152,6 +182,11 @@ try {
         } catch { $cleanupErrors.Add($_.ToString()) }
         finally { $process.Dispose() }
     }
+    try {
+        Remove-ItemProperty -LiteralPath $runKey -Name $runName -ErrorAction SilentlyContinue
+        $eventSource = 'HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\BTRemoteCompanion'
+        if (Test-Path -LiteralPath $eventSource) { Remove-Item -LiteralPath $eventSource -Recurse -Force }
+    } catch { $cleanupErrors.Add($_.ToString()) }
     foreach ($path in @($shortcut, $install, $data)) {
         try {
             if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Recurse -Force }

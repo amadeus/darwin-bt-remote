@@ -10,12 +10,14 @@ struct LayoutSettingsView: View {
             Section {
                 Label(coordinator.isRemote ? L10n.Layout.remote : L10n.Layout.local, systemImage: "computermouse")
                 Text(L10n.Layout.targetHint).font(.caption).foregroundStyle(.secondary)
-                if !coordinator.targetAvailable { Text(L10n.Layout.noTarget).foregroundStyle(.orange) }
-                if !coordinator.permissionGranted {
+                if !coordinator
+                    .isEnabled { Text("BTRemote is disabled. Enable it in Settings or the menu bar.").foregroundStyle(.secondary) }
+                if coordinator.isEnabled, !coordinator.targetAvailable { Text(L10n.Layout.noTarget).foregroundStyle(.orange) }
+                if coordinator.isEnabled, !coordinator.permissionGranted {
                     Button(L10n.DirectInput.openSettings) { AccessibilityPermission.request() }
                     Text(L10n.DirectInput.permissionMessage).font(.caption)
                 }
-                if coordinator.permissionGranted, !coordinator.keyboardMonitoringReady {
+                if coordinator.isEnabled, coordinator.permissionGranted, !coordinator.keyboardMonitoringReady {
                     Button("Enable complete keyboard capture") { KeyboardMonitoringPermission.request() }
                     Text("Allow BTRemote in Input Monitoring, then reopen it to forward Print Screen, Scroll Lock, and Pause.")
                         .font(.caption).foregroundStyle(.secondary)
@@ -68,7 +70,8 @@ struct LayoutSettingsView: View {
                 Text(L10n.Layout.releaseHint).font(.caption).foregroundStyle(.secondary)
             }
             Button(coordinator.isRemote ? L10n.Layout.returnToMac : L10n.Layout.switchToPC) { coordinator.toggle() }
-                .disabled(!coordinator.permissionGranted || (!coordinator.isRemote && !coordinator.targetAvailable))
+                .disabled(!coordinator.isEnabled || !coordinator
+                    .permissionGranted || (!coordinator.isRemote && !coordinator.targetAvailable))
         }
         .settingsFormStyle()
         .onChange(of: recording) { coordinator.recordingShortcut = $0 }

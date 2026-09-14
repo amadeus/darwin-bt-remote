@@ -2,6 +2,8 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var lowEnergy: HIDPeripheral
+    @EnvironmentObject private var coordinator: EdgeSwitchCoordinator
+    @StateObject private var login = LaunchAtLoginController()
     @EnvironmentObject private var names: DeviceNameStore
     @AppStorage(AppSettings.invertVerticalScrollKey) private var invertVerticalScroll = false
     @AppStorage(AppSettings.invertHorizontalScrollKey) private var invertHorizontalScroll = false
@@ -21,6 +23,21 @@ struct SettingsView: View {
 
     private var form: some View {
         Form {
+            Section {
+                Button(coordinator.isEnabled ? "Disable BTRemote" : "Enable BTRemote") {
+                    coordinator.setEnabled(!coordinator.isEnabled)
+                }
+                Toggle("Launch BTRemote at login", isOn: Binding(
+                    get: { login.enabled }, set: { value in Task { await login.setEnabled(value) } }
+                ))
+                .disabled(login.busy)
+                if login.needsApproval {
+                    Button("Allow in Login Items…") { login.openSettings() }
+                }
+            } footer: {
+                Text(coordinator
+                    .isEnabled ? "BTRemote is enabled." : "Disabled. Advertising, input forwarding and clipboard sharing are paused.")
+            }
             Section {
                 Toggle("Share text clipboard with Windows", isOn: $clipboardEnabled)
                     .toggleStyle(.switch)
@@ -51,8 +68,17 @@ struct SettingsView: View {
             }
             resetSection
         }
+        .onAppear { login.refresh() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in login.refresh() }
+        .alert("Could not change login startup", isPresented: Binding(
+            get: { login.error != nil }, set: { if !$0 { login.error = nil } }
+        )) {
+            Button("OK") { login.error = nil }
+        } message: { Text(login.error ?? "") }
         .confirmationDialog(L10n.Settings.resetConfirm, isPresented: $showReset, titleVisibility: .visible) {
-            Button(L10n.Settings.reset, role: .destructive) { _resetAll() }
+            Button(L10n.Settings.reset, role: .destructive) {
+                Task { if await login.setEnabled(false) { _resetAll() } }
+            }
         }
     }
 
@@ -71,14 +97,18 @@ struct SettingsView: View {
             UserDefaults.standard.removePersistentDomain(forName: bundleID)
         }
         hasSeenWelcome = false
+        coordinator.setEnabled(true)
     }
 }
 
 #if DEBUG
     #Preview {
+        let peripheral = HIDPeripheral()
+        let central = HIDCentral()
         SettingsView()
-            .environmentObject(HIDPeripheral())
-            .environmentObject(HIDCentral())
+            .environmentObject(peripheral)
+            .environmentObject(central)
+            .environmentObject(EdgeSwitchCoordinator(lowEnergy: peripheral, central: central))
             .environmentObject(DeviceNameStore())
     }
 #endif

@@ -6,7 +6,7 @@ enum CompanionProtocol {
     static let maximumPayload = 65536
     enum Message: UInt8, Sendable {
         case hello = 0x01, ping = 0x02, pong = 0x03, screens = 0x04, config = 0x05
-        case enter = 0x11, enterAck = 0x12, leave = 0x13, state = 0x14, exit = 0x15, resume = 0x16
+        case enter = 0x11, enterAck = 0x12, leave = 0x13, state = 0x14, exit = 0x15, resume = 0x16, enterCenter = 0x17
         case clipGrab = 0x20, clipGet = 0x21, clipData = 0x22, clipState = 0x23
         case nack = 0x7F
     }
@@ -118,6 +118,7 @@ struct CompanionHello: Codable {
     let name: String
     let chunk: Int
     var resume: Bool?
+    var center: Bool?
     var clipboard: Int?
 }
 
@@ -142,4 +143,15 @@ struct PCConfiguration: Codable, Equatable {
     var doubleTapMs = 0
     var cornerPx = 0
     var heartbeatS = 3
+}
+
+enum CompanionEntry {
+    static func packet(id: UInt8, edge: UInt8, fraction: UInt16, fromEdge: Bool, supportsCenter: Bool) -> CompanionProtocol.Packet {
+        if !fromEdge, supportsCenter {
+            return .init(stream: 0, type: CompanionProtocol.Message.enterCenter.rawValue, payload: Data([id, edge]))
+        }
+        return .init(stream: 0, type: CompanionProtocol.Message.enter.rawValue, payload: Data([
+            id, edge, UInt8(truncatingIfNeeded: fraction), UInt8(fraction >> 8)
+        ]))
+    }
 }

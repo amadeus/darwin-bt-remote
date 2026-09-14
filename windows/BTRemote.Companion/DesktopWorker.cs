@@ -161,7 +161,7 @@ internal sealed class DesktopWorker : ApplicationContext
                     handoff.Enter(message.SwitchId);
                     if (DesktopNative.IsDefaultDesktop())
                     {
-                        var point = monitor.Entry(message.Edge, message.Fraction);
+                        var point = message.Center ? monitor.Center : monitor.Entry(message.Edge, message.Fraction);
                         ok = DesktopNative.SetCursorPos(point.X, point.Y) && DesktopNative.GetCursorPos(out position) &&
                             Math.Abs(position.X - point.X) <= 1 && Math.Abs(position.Y - point.Y) <= 1;
                     }

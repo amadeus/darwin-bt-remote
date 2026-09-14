@@ -1,6 +1,7 @@
 import Foundation
 
 enum AppSettings {
+    static let enabledKey = "BTRemote.enabled"
     static let clipboardEnabledKey = "BTRemote.clipboardEnabled"
     static let allowedHostsKey = "BTRemote.allowedHosts"
     static let autoAdvertiseKey = "BTRemote.autoAdvertise"

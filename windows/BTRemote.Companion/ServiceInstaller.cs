@@ -22,7 +22,7 @@ internal static class ServiceInstaller
         return !SHA256.HashData(source).AsSpan().SequenceEqual(SHA256.HashData(installed));
     }
 
-    private static ServiceController? FindService()
+    internal static ServiceController? FindService()
     {
         var service = new ServiceController(Paths.ServiceName);
         try { _ = service.Status; return service; }
@@ -47,6 +47,7 @@ internal static class ServiceInstaller
 
     private static void InstallCore()
     {
+        if (File.Exists(Paths.RemovalMarker)) throw new InvalidOperationException("Finish the pending removal before reinstalling BTRemote.");
         if (!IsInstalledLocation && File.Exists(Path.ChangeExtension(Environment.ProcessPath!, ".dll")))
             throw new InvalidOperationException("Install using the published, self-contained BTRemote.Companion.exe.");
         ProtectDirectory(Paths.InstallDirectory);
@@ -132,9 +133,12 @@ internal static class ServiceInstaller
             // A backup on a failed rollback is deliberately retained for recovery.
         }
         if (backup is not null) File.Delete(backup);
+        // Only register --tray after the new executable has successfully installed.
+        // A rollback may restore an older build that does not understand that flag.
+        TrayStartup.InstallDefault();
     }
 
-    private static void CloseInstalledProcesses()
+    internal static void CloseInstalledProcesses()
     {
         foreach (var process in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(Paths.InstalledExe)))
         {
@@ -183,7 +187,7 @@ internal static class ServiceInstaller
         dynamic shell = Activator.CreateInstance(shellType)!;
         try
         {
-            dynamic shortcut = shell.CreateShortcut(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms), "BTRemote Companion.lnk"));
+            dynamic shortcut = shell.CreateShortcut(Paths.Shortcut);
             try
             {
                 shortcut.TargetPath = Paths.InstalledExe;

@@ -8,6 +8,8 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        var quiet = args.LastOrDefault() == "--quiet";
+        if (quiet) args = args[..^1];
         if (args is ["--service"])
         {
             ServiceBase.Run(new CompanionService());
@@ -34,7 +36,22 @@ internal static class Program
 
         try
         {
-            if (args.Length > 0) return ServiceCommands.Execute(args);
+            if (args is ["--remove"])
+            {
+                using var removal = new RemovalForm(showResult: !quiet);
+                Application.Run(removal);
+                return removal.Succeeded ? 0 : 1;
+            }
+            var trayOnly = args is ["--tray"];
+            if (args.Length > 0 && !trayOnly) return ServiceCommands.Execute(args);
+            if (trayOnly && (File.Exists(Paths.RemovalMarker) || !ServiceInstaller.IsInstalledLocation || ServiceInstaller.NeedsInstall())) return 0;
+            if (File.Exists(Paths.RemovalMarker))
+            {
+                if (MessageBox.Show("A previous removal did not finish. Retry removing BTRemote and its selected Mac pairing?",
+                    "Finish removing BTRemote", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) == DialogResult.OK)
+                    ServiceCommands.ElevateExecutableAsync(Environment.ProcessPath!, "--remove").GetAwaiter().GetResult();
+                return 0;
+            }
             if (ServiceInstaller.NeedsInstall())
             {
                 using var setup = new SetupForm();
@@ -48,14 +65,15 @@ internal static class Program
             }
             using var showSettings = new EventWaitHandle(false, EventResetMode.AutoReset, "Local\\BTRemoteCompanionShowSettings");
             using var singleInstance = new Mutex(true, "Local\\BTRemoteCompanionTray", out var created);
-            if (!created) { showSettings.Set(); return 0; }
-            using var tray = new TrayContext(showSettings);
+            if (!created) { if (!trayOnly) showSettings.Set(); return 0; }
+            using var tray = new TrayContext(showSettings, !trayOnly);
             Application.Run(tray);
             return 0;
         }
         catch (Exception error)
         {
-            MessageBox.Show(error.Message, "BTRemote Companion", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            if (quiet) Console.Error.WriteLine(error);
+            else MessageBox.Show(error.Message, "BTRemote Companion", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return 1;
         }
     }

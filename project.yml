@@ -61,6 +61,7 @@ targets:
       - BTRemote/EdgeGeometry.swift
       - BTRemote/ReturnMotionProbe.swift
       - BTRemote/HandoffState.swift
+      - BTRemote/TapRunState.swift
       - BTRemote/HIDHostPolicy.swift
       - BTRemote/Companion/CompanionProtocol.swift
       - BTRemote/Clipboard/ClipboardTransfer.swift

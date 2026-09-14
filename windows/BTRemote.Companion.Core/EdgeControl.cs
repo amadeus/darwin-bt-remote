@@ -2,6 +2,7 @@ namespace BTRemote.Companion.Core;
 
 public sealed record MonitorInfo(string Id, int X, int Y, int W, int H, int Dpi, bool Primary)
 {
+    public (int X, int Y) Center => (X + W / 2, Y + H / 2);
     public bool Contains(int x, int y) => x >= X && y >= Y && x < X + W && y < Y + H;
     public (int X, int Y) Entry(byte edge, ushort fraction)
     {
@@ -23,7 +24,7 @@ public sealed record MonitorInfo(string Id, int X, int Y, int W, int H, int Dpi,
 public sealed record EdgeConfiguration(byte Edge, string Monitor);
 public sealed record DesktopMessage(string Kind, EdgeConfiguration? Config = null, byte SwitchId = 0,
     byte Edge = 0, ushort Fraction = 0, MonitorInfo[]? Monitors = null,
-    byte Blind = 4, byte Desktop = 2, bool MousePresent = false, bool Ok = false, int X = 0, int Y = 0, string? Detail = null, uint Epoch = 0, uint Revision = 0, byte[]? Clipboard = null);
+    byte Blind = 4, byte Desktop = 2, bool MousePresent = false, bool Ok = false, int X = 0, int Y = 0, string? Detail = null, uint Epoch = 0, uint Revision = 0, byte[]? Clipboard = null, bool Center = false);
 
 // Only fresh outward counts from the selected Mac mouse can trigger a return.
 public static class EdgeDetector

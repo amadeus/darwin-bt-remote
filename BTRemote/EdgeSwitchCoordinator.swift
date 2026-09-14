@@ -34,6 +34,7 @@ final class EdgeSwitchCoordinator: ObservableObject {
         didSet { _save() }
     }
 
+    @Published private(set) var isEnabled = true
     @Published private(set) var isRemote = false
     @Published private(set) var targetAvailable = false
     @Published private(set) var keyboardMonitoringReady = false
@@ -73,6 +74,7 @@ final class EdgeSwitchCoordinator: ObservableObject {
         self.lowEnergy = lowEnergy
         self.central = central
         let defaults = UserDefaults.standard
+        isEnabled = defaults.object(forKey: AppSettings.enabledKey) as? Bool ?? true
         edgeEnabled = defaults.bool(forKey: AppSettings.edgeSwitchEnabledKey)
         displayID = defaults.string(forKey: AppSettings.edgeDisplayUUIDKey) ?? ""
         edge = DisplayEdge(rawValue: defaults.string(forKey: AppSettings.edgeSideKey) ?? "") ?? .right
@@ -98,8 +100,8 @@ final class EdgeSwitchCoordinator: ObservableObject {
             self?.returnLocal(reason: "input target changed")
             self?.clipboard.update(target: nil, remote: false, enabled: false, available: false)
         }
-        lowEnergy.start()
-        central.start()
+        lowEnergy.setEnabled(isEnabled)
+        central.setEnabled(isEnabled)
         lowEnergy.$hostPolicy.combineLatest(lowEnergy.$state)
             .sink { [weak self] _ in
                 DispatchQueue.main.async { self?._refresh() }
@@ -133,7 +135,21 @@ final class EdgeSwitchCoordinator: ObservableObject {
         tapStarting = false
     }
 
+    func setEnabled(_ value: Bool) {
+        guard value != isEnabled else { return }
+        if !value { returnLocal(reason: "BTRemote disabled") }
+        isEnabled = value
+        UserDefaults.standard.set(value, forKey: AppSettings.enabledKey)
+        if !value {
+            tap.stop(); tapReady = false; tapStarting = false; keyboardMonitoringReady = false
+        }
+        central.setEnabled(value)
+        lowEnergy.setEnabled(value)
+        _refresh()
+    }
+
     func toggle() {
+        guard isEnabled else { return }
         guard permissionGranted else { AccessibilityPermission.request(); return }
         guard tapReady, isRemote || targetAvailable, !secureInput else { return }
         tap.requestToggle()
@@ -199,10 +215,10 @@ final class EdgeSwitchCoordinator: ObservableObject {
         let secure = IsSecureEventInputEnabled()
         if permissionGranted != permission { permissionGranted = permission }
         if secureInput != secure { secureInput = secure }
-        currentTarget = lowEnergy.state == .poweredOn ? lowEnergy.hostPolicy.target : nil
+        currentTarget = isEnabled && lowEnergy.state == .poweredOn ? lowEnergy.hostPolicy.target : nil
         let available = currentTarget != nil
         if targetAvailable != available { targetAvailable = available }
-        _refreshCompanion()
+        if isEnabled { _refreshCompanion() } else { companionStatus = "BTRemote is disabled" }
         refreshClipboard()
         if isRemote, !permissionGranted || secureInput || captureTarget != currentTarget || geometry == nil {
             returnLocal(
@@ -210,16 +226,15 @@ final class EdgeSwitchCoordinator: ObservableObject {
             )
         }
         if isRemote { diagnostics.sample(parkingPoint: cursor.parkingPoint, companion: lowEnergy.companion.diagnosticState) }
-        if permissionGranted, !tapReady, !tapStarting {
-            tapStarting = true
-            tap.start()
+        if isEnabled, permissionGranted, !tapReady, !tapStarting {
+            tapStarting = tap.start()
         }
         _configure()
     }
 
     private func refreshClipboard() {
         clipboard.update(
-            target: lowEnergy.hostPolicy.target,
+            target: isEnabled ? lowEnergy.hostPolicy.target : nil,
             remote: isRemote,
             enabled: UserDefaults.standard.object(forKey: AppSettings.clipboardEnabledKey) as? Bool ?? true,
             available: !secureInput
@@ -294,16 +309,18 @@ final class EdgeSwitchCoordinator: ObservableObject {
 
     private func _receive(_ event: TapOutput) {
         switch event {
-        case let .keyboardMonitoring(ready):
+        case let .keyboardMonitoring(token, ready):
+            guard isEnabled, tap.isCurrentRun(token) else { return }
             keyboardMonitoringReady = ready
-        case let .installed(success):
+        case let .installed(token, success):
+            guard isEnabled, tap.isCurrentRun(token) else { return }
             tapStarting = false
             tapReady = success
             if !success { lastError = L10n.DirectInput.captureFailedString }
-        case let .begin(generation, origin):
+        case let .begin(generation, origin, fromEdge):
             let startedAt = ProcessInfo.processInfo.systemUptime
             guard tap.isCurrent(generation) else { return }
-            guard targetAvailable, permissionGranted, !IsSecureEventInputEnabled(),
+            guard isEnabled, targetAvailable, permissionGranted, !IsSecureEventInputEnabled(),
                   let geometry else { returnLocal(); return }
             guard cursor.hide(at: geometry.parkingPoint, returningTo: origin) else {
                 lastError = L10n.Layout.cursorFailedString
@@ -321,12 +338,13 @@ final class EdgeSwitchCoordinator: ObservableObject {
             companionCapture = currentTarget.map { lowEnergy.companion.ready.contains($0) } ?? false
             if let target = currentTarget {
                 let fraction = geometry.fraction(at: origin)
-                lowEnergy.companion.send(.enter, payload: Data([
-                    switchID,
-                    edge.opposite.wireValue,
-                    UInt8(truncatingIfNeeded: fraction),
-                    UInt8(fraction >> 8)
-                ]), to: target)
+                let entry = CompanionEntry.packet(
+                    id: switchID, edge: edge.opposite.wireValue, fraction: fraction,
+                    fromEdge: fromEdge, supportsCenter: lowEnergy.companion.supportsCenter(target)
+                )
+                lowEnergy.companion.send(
+                    CompanionProtocol.Message(rawValue: entry.type)!, payload: entry.payload, to: target
+                )
             }
         case let .input(generation, input, capturedAt):
             guard tap.isCurrent(generation), isRemote else { return }

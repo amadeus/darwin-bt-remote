@@ -33,10 +33,10 @@ final class CursorSpike {
     private func _receive(_ event: TapOutput) {
         switch event {
         case .keyboardMonitoring: break
-        case let .installed(success):
+        case let .installed(_, success):
             _log("tap=\(success)")
             if success { tap?.requestToggle() } else { _finish() }
-        case let .begin(_, origin):
+        case let .begin(_, origin, _):
             let bounds = CGDisplayBounds(CGMainDisplayID())
             let point = CGPoint(x: bounds.midX, y: bounds.midY)
             let success = cursor.hide(at: point, returningTo: origin)

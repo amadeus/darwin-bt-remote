@@ -36,6 +36,8 @@ jobs:
           -c Release -r win-x64 --self-contained true
           -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true
           -p:DebugType=None -o .build/windows/win-x64
+      - name: Test cleanup on disposable files
+        run: python windows/tests/test_removal_files.py --powershell powershell
       - name: Test EXE installation and update lifecycle
         shell: powershell
         run: ./windows/tests/Test-ExecutableInstall.ps1 -Executable .build/windows/win-x64/BTRemote.Companion.exe

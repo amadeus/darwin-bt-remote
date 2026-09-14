@@ -28,14 +28,14 @@ struct BTRemoteApp: App {
         .defaultSize(width: 480, height: 600)
         .windowResizability(.contentSize)
         Settings {
-            LayoutSettingsView()
-                .environmentObject(coordinator)
+            SettingsView()
+                .modifier(AppEnvironment(lowEnergy: lowEnergy, central: central, names: deviceNames, coordinator: coordinator))
                 .frame(minWidth: 420, idealWidth: 480, maxWidth: 640, minHeight: 480, idealHeight: 600)
         }
         .defaultSize(width: 480, height: 600)
         .windowResizability(.contentSize)
         MenuBarExtra {
-            Text(coordinator.isRemote ? L10n.Layout.remote : L10n.Layout.local)
+            Text(coordinator.isEnabled ? (coordinator.isRemote ? L10n.Layout.remote : L10n.Layout.local) : "BTRemote is disabled")
             Text(verbatim: coordinator.companionStatus)
             Text(verbatim: coordinator.shortcutLabel)
             Button(L10n.Layout.openControls) {
@@ -43,13 +43,18 @@ struct BTRemoteApp: App {
                 NSApp.activate(ignoringOtherApps: true)
             }
             Button(coordinator.isRemote ? L10n.Layout.returnToMac : L10n.Layout.switchToPC) { coordinator.toggle() }
-                .disabled(!coordinator.permissionGranted || (!coordinator.isRemote && !coordinator.targetAvailable))
+                .disabled(!coordinator.isEnabled || !coordinator
+                    .permissionGranted || (!coordinator.isRemote && !coordinator.targetAvailable))
             Toggle(L10n.Layout.lock, isOn: $coordinator.locked)
             Divider()
+            Button(coordinator.isEnabled ? "Disable BTRemote" : "Enable BTRemote") {
+                coordinator.setEnabled(!coordinator.isEnabled)
+            }
             Button(L10n.Layout.quit) { NSApp.terminate(nil) }
         } label: {
-            Image(systemName: coordinator.isRemote ? "keyboard.fill" : "keyboard")
-                .accessibilityLabel(coordinator.isRemote ? L10n.Layout.remote : L10n.Layout.local)
+            Image(systemName: coordinator.isEnabled ? (coordinator.isRemote ? "keyboard.fill" : "keyboard") : "pause.circle")
+                .accessibilityLabel(coordinator
+                    .isEnabled ? (coordinator.isRemote ? L10n.Layout.remote : L10n.Layout.local) : "BTRemote disabled")
         }
     }
 }

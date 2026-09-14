@@ -4,6 +4,26 @@ import IOBluetooth
 
 /// Allowed-host selection and advertising share one readiness decision.
 extension HIDPeripheral {
+    func stop() {
+        isHIDServiceAllowed = false
+        advertisingStarting = false
+        pManager?.stopAdvertising()
+        isAdvertising = false
+    }
+
+    func setEnabled(_ enabled: Bool) {
+        isEnabled = enabled
+        companion.setEnabled(enabled)
+        if enabled {
+            start()
+        } else {
+            stop()
+            pendingBroadcasts.removeAll()
+            cachedReports = Self.emptyReports
+            cachedBootMouseReport = MouseReport.zero.bootData
+        }
+    }
+
     static let emptyReports: [UInt8: Data] = [
         ReportID.mouse.rawValue: MouseReport.zero.data,
         ReportID.keyboard.rawValue: KeyboardReport.zero.data,
@@ -43,7 +63,11 @@ extension HIDPeripheral {
 
     func reconcileAdvertising() {
         guard let pManager else { return }
-        let wanted = isHIDServiceAllowed && state == .poweredOn && isHIDServiceAdded && hostPolicy.needsAdvertising
+        let wanted = hostPolicy.shouldAdvertise(
+            enabled: isEnabled && isHIDServiceAllowed,
+            poweredOn: state == .poweredOn,
+            serviceAdded: isHIDServiceAdded
+        )
         if !wanted {
             if isAdvertising || advertisingStarting { pManager.stopAdvertising() }
             advertisingStarting = false
@@ -63,7 +87,7 @@ extension HIDPeripheral {
     }
 
     func activeRecipients() -> [CBCentral] {
-        guard let id = hostPolicy.target, let central = centralObjects[id] else { return [] }
+        guard isEnabled, let id = hostPolicy.target, let central = centralObjects[id] else { return [] }
         return [central]
     }
 

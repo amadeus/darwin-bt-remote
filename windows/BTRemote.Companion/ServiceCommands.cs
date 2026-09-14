@@ -14,6 +14,7 @@ internal static class ServiceCommands
         using var identity = WindowsIdentity.GetCurrent();
         if (!new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator))
             throw new InvalidOperationException("This service operation requires administrator permission.");
+        if (File.Exists(Paths.RemovalMarker)) throw new InvalidOperationException("Finish the pending removal before changing service settings.");
         using var service = new ServiceController(Paths.ServiceName);
         switch (args)
         {
@@ -33,6 +34,9 @@ internal static class ServiceCommands
                 break;
             case ["--startup", "auto" or "manual"]:
                 RunSc("config", Paths.ServiceName, "start=", args[1] == "auto" ? "auto" : "demand");
+                break;
+            case ["--tray-startup", "on" or "off"]:
+                TrayStartup.SetEnabled(args[1] == "on");
                 break;
             case ["--configure", var encoded]:
                 if (encoded.Length > 16384) throw new ArgumentException("Device selection is too large.");

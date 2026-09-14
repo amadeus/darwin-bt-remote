@@ -10,9 +10,9 @@ struct TapConfiguration: Equatable, Sendable {
 }
 
 enum TapOutput: Sendable {
-    case installed(Bool)
-    case keyboardMonitoring(Bool)
-    case begin(Int, CGPoint)
+    case installed(Int, Bool)
+    case keyboardMonitoring(Int, Bool)
+    case begin(Int, CGPoint, fromEdge: Bool)
     case input(Int, DirectInputEvent, TimeInterval)
     case end(Int)
     case disabled
@@ -34,7 +34,7 @@ final class InputTap: @unchecked Sendable {
     private var rawShortcutKeys: Set<UInt16> = []
     private var eventTap: CFMachPort?
     private var runLoop: CFRunLoop?
-    private var running = false
+    private var runState = TapRunState()
     private let output: @MainActor @Sendable (TapOutput) -> Void
 
     init(output: @escaping @MainActor @Sendable (TapOutput) -> Void) {
@@ -50,19 +50,20 @@ final class InputTap: @unchecked Sendable {
         }
     }
 
-    func start() {
-        let shouldStart = lock.withLock {
-            guard !running else { return false }
-            running = true
-            return true
-        }
-        guard shouldStart else { return }
-        Thread { [self] in _run() }.start()
+    @discardableResult
+    func start() -> Bool {
+        guard let token = lock.withLock({ runState.begin() }) else { return false }
+        Thread { [self] in _run(token) }.start()
+        return true
+    }
+
+    func isCurrentRun(_ token: Int) -> Bool {
+        lock.withLock { runState.isCurrent(token) }
     }
 
     func stop() {
         lock.withLock {
-            running = false
+            runState.stop()
             remote = false
             generation += 1
             if let eventTap { CFMachPortInvalidate(eventTap) }
@@ -118,7 +119,12 @@ final class InputTap: @unchecked Sendable {
         DispatchQueue.main.async { output(event) }
     }
 
-    private func _run() {
+    private func _run(_ token: Int) {
+        defer {
+            lock.withLock { runState.finish(token) }
+            _emit(.installed(token, false))
+        }
+        guard lock.withLock({ runState.isRunning && runState.isCurrent(token) }) else { return }
         let mask = [
             CGEventType.keyDown, .keyUp, .flagsChanged, .mouseMoved, .leftMouseDown, .leftMouseUp,
             .leftMouseDragged, .rightMouseDown, .rightMouseUp, .rightMouseDragged,
@@ -129,8 +135,6 @@ final class InputTap: @unchecked Sendable {
             tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap,
             eventsOfInterest: mask, callback: Self.callback, userInfo: refcon
         ), let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0) else {
-            lock.withLock { running = false }
-            _emit(.installed(false))
             return
         }
         let loop = CFRunLoopGetCurrent()!
@@ -153,15 +157,15 @@ final class InputTap: @unchecked Sendable {
         let keyboard = RawKeyboardMonitor { [weak self] key, down in self?._rawKey(key, down: down) }
         let keyboardReady = keyboard.start(on: loop)
         lock.withLock { rawKeyboardReady = keyboardReady }
-        _emit(.keyboardMonitoring(keyboardReady))
+        _emit(.keyboardMonitoring(token, keyboardReady))
         CFRunLoopAddSource(loop, source, .commonModes)
         let timer = CFRunLoopTimerCreateWithHandler(nil, CFAbsoluteTimeGetCurrent() + 0.02, 0.02, 0, 0) { [weak self] _ in
             self?._tick()
         }!
         CFRunLoopAddTimer(loop, timer, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
-        _emit(.installed(true))
-        if lock.withLock({ running }) { CFRunLoopRun() }
+        _emit(.installed(token, true))
+        if lock.withLock({ runState.isRunning }) { CFRunLoopRun() }
         keyboard.stop(on: loop)
         CFRunLoopTimerInvalidate(timer)
         CFMachPortInvalidate(tap)
@@ -173,7 +177,7 @@ final class InputTap: @unchecked Sendable {
 
     private func _tick() {
         lock.withLock {
-            guard running else { return }
+            guard runState.isRunning else { CFRunLoopStop(CFRunLoopGetCurrent()); return }
             if let result = returnProbe?.expired(now: ProcessInfo.processInfo.systemUptime) {
                 log.notice("\(result, privacy: .public)")
                 returnProbe = nil
@@ -198,7 +202,7 @@ final class InputTap: @unchecked Sendable {
         edgeArmed = false
         dropNextMotion = true
         // placement and panel ownership stay on the main actor; input is already suppressed here
-        _emit(.begin(generation, fromEdge ? geometry.inset(location) : location))
+        _emit(.begin(generation, fromEdge ? geometry.inset(location) : location, fromEdge: fromEdge))
     }
 
     private func _end() {
@@ -210,6 +214,7 @@ final class InputTap: @unchecked Sendable {
 
     private func _handle(type: CGEventType, event: CGEvent) -> Bool {
         lock.withLock {
+            guard runState.isRunning else { return false }
             if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
                 remote = false
                 generation += 1
@@ -218,51 +223,56 @@ final class InputTap: @unchecked Sendable {
                 _emit(.disabled)
                 return false
             }
-            if type == MediaKeyEvent.eventType { return _media(event) }
-            handoff.modifiers = event.flags
-            let wasRemote = remote
-            if type == .keyDown || type == .keyUp {
-                let code = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
-                if rawKeyboardReady, RawKeyboardState.quartzAliases.contains(code) {
-                    return _suppressRawAlias(code: code, down: type == .keyDown, flags: event.flags)
-                }
-                let consumed = handoff.key(
-                    code: UInt16(event.getIntegerValueField(.keyboardEventKeycode)), down: type == .keyDown,
-                    repeatEvent: event.getIntegerValueField(.keyboardEventAutorepeat) != 0,
-                    flags: event.flags,
-                    shortcut: remote || configuration.targetAvailable ? configuration.shortcut : ToggleShortcut(enabled: false)
-                )
-                if consumed { return true }
-            } else if type == .flagsChanged {
-                handoff.updateModifiers(event.flags)
-            }
-            _trackButtons(type: type, event: event)
-            let motion = [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged].contains(type)
-            if !remote {
-                if motion, returnProbe != nil, let point = CGEvent(source: nil)?.location {
-                    let delta = event.getIntegerValueField(.mouseEventDeltaX) != 0 || event.getIntegerValueField(.mouseEventDeltaY) != 0
-                    if let result = returnProbe?.observe(now: ProcessInfo.processInfo.systemUptime, position: point, hasDelta: delta) {
-                        log.notice("\(result, privacy: .public)")
-                        returnProbe = nil
-                    }
-                }
-                location = event.location
-                if motion, dropNextMotion {
-                    dropNextMotion = false
-                    edgeArmed = false
-                } else if motion { _checkEdge(event) }
-            } else if motion {
-                if let point = configuration.geometry?.parkingPoint { CGWarpMouseCursorPosition(point) }
-                if dropNextMotion {
-                    dropNextMotion = false
-                    return true
-                }
-            }
-            if wasRemote, let input = DirectInputEvent(type: type, event: event) {
-                _emit(.input(generation, input, ProcessInfo.processInfo.systemUptime))
-            }
-            return wasRemote
+            return _handleInput(type: type, event: event)
         }
+    }
+
+    /// Called with the tap lock held.
+    private func _handleInput(type: CGEventType, event: CGEvent) -> Bool {
+        if type == MediaKeyEvent.eventType { return _media(event) }
+        handoff.modifiers = event.flags
+        let wasRemote = remote
+        if type == .keyDown || type == .keyUp {
+            let code = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
+            if rawKeyboardReady, RawKeyboardState.quartzAliases.contains(code) {
+                return _suppressRawAlias(code: code, down: type == .keyDown, flags: event.flags)
+            }
+            let consumed = handoff.key(
+                code: UInt16(event.getIntegerValueField(.keyboardEventKeycode)), down: type == .keyDown,
+                repeatEvent: event.getIntegerValueField(.keyboardEventAutorepeat) != 0,
+                flags: event.flags,
+                shortcut: remote || configuration.targetAvailable ? configuration.shortcut : ToggleShortcut(enabled: false)
+            )
+            if consumed { return true }
+        } else if type == .flagsChanged {
+            handoff.updateModifiers(event.flags)
+        }
+        _trackButtons(type: type, event: event)
+        let motion = [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged].contains(type)
+        if !remote {
+            if motion, returnProbe != nil, let point = CGEvent(source: nil)?.location {
+                let delta = event.getIntegerValueField(.mouseEventDeltaX) != 0 || event.getIntegerValueField(.mouseEventDeltaY) != 0
+                if let result = returnProbe?.observe(now: ProcessInfo.processInfo.systemUptime, position: point, hasDelta: delta) {
+                    log.notice("\(result, privacy: .public)")
+                    returnProbe = nil
+                }
+            }
+            location = event.location
+            if motion, dropNextMotion {
+                dropNextMotion = false
+                edgeArmed = false
+            } else if motion { _checkEdge(event) }
+        } else if motion {
+            if let point = configuration.geometry?.parkingPoint { CGWarpMouseCursorPosition(point) }
+            if dropNextMotion {
+                dropNextMotion = false
+                return true
+            }
+        }
+        if wasRemote, let input = DirectInputEvent(type: type, event: event) {
+            _emit(.input(generation, input, ProcessInfo.processInfo.systemUptime))
+        }
+        return wasRemote
     }
 
     private func _suppressRawAlias(code: UInt16, down: Bool, flags: CGEventFlags) -> Bool {
@@ -273,6 +283,7 @@ final class InputTap: @unchecked Sendable {
 
     private func _rawKey(_ key: Keycode, down: Bool) {
         lock.withLock {
+            guard runState.isRunning else { return }
             if down { handoff.heldRawKeys.insert(key) } else { handoff.heldRawKeys.remove(key) }
             let flags = CGEventSource.flagsState(.combinedSessionState)
             // Raw aliases are also eligible for the configured local shortcut.

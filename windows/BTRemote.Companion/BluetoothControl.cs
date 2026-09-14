@@ -112,7 +112,7 @@ internal sealed partial class BluetoothControl(Action<string> status) : IDisposa
                 ready = true;
                 clipboardPeer = hello.RootElement.TryGetProperty("clipboard", out var capability) &&
                     capability.TryGetInt32(out var clipboardVersion) && clipboardVersion == 1;
-                SendJson(Protocol.Message.Hello, new { v = 1, role = "pc", name = "BTRemote Companion", chunk = 20, resume = true, clipboard = 1 });
+                SendJson(Protocol.Message.Hello, new { v = 1, role = "pc", name = "BTRemote Companion", chunk = 20, resume = true, center = true, clipboard = 1 });
                 UpdateClipboardSession(true);
                 if (monitors.Length > 0) SendScreens();
                 SetDetail("Companion connected; waiting for desktop status");
@@ -148,12 +148,10 @@ internal sealed partial class BluetoothControl(Action<string> status) : IDisposa
                 ResumeDesktop();
                 break;
             case Protocol.Message.Enter when payload.Length == 4 && payload[1] < 4:
-                handoff.Enter(payload[0], payload[1]);
-                ClipboardSwitch(true);
-                if (desktop?.Connected == true && config is not null && config.Edge == payload[1])
-                    desktop.Send(new DesktopMessage("enter", SwitchId: payload[0], Edge: payload[1],
-                        Fraction: BinaryPrimitives.ReadUInt16LittleEndian(payload.AsSpan(2))));
-                else Send(Protocol.Message.EnterAck, [payload[0], 0, 0, 0, 0, 0, 4]);
+                EnterDesktop(payload, false);
+                break;
+            case Protocol.Message.EnterCenter when payload.Length == 2 && payload[1] < 4:
+                EnterDesktop(payload, true);
                 break;
             case Protocol.Message.Resume when payload.Length == 2 && payload[1] < 4:
                 handoff.Enter(payload[0], payload[1]);
@@ -165,6 +163,16 @@ internal sealed partial class BluetoothControl(Action<string> status) : IDisposa
                 break;
             default: throw new InvalidDataException("Unsupported companion message");
         }
+    }
+
+    private void EnterDesktop(byte[] payload, bool center)
+    {
+        handoff.Enter(payload[0], payload[1]);
+        ClipboardSwitch(true);
+        if (desktop?.Connected == true && config is not null && config.Edge == payload[1])
+            desktop.Send(new DesktopMessage("enter", SwitchId: payload[0], Edge: payload[1], Center: center,
+                Fraction: center ? (ushort)0 : BinaryPrimitives.ReadUInt16LittleEndian(payload.AsSpan(2))));
+        else Send(Protocol.Message.EnterAck, [payload[0], 0, 0, 0, 0, 0, blind]);
     }
 
     private void DesktopEvent(DesktopMessage message)
