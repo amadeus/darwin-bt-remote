@@ -152,28 +152,32 @@ struct SetupView: View {
     }
 
     private func connectedDeviceRow(_ entry: DeviceEntry) -> some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(verbatim: entry.displayName)
-                Text(_deviceStatus(entry)).font(.caption).foregroundColor(.secondary)
-                if developerMode {
-                    Text(verbatim: entry.id.uuidString).font(.caption2).foregroundColor(.secondary)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(verbatim: entry.displayName).lineLimit(1)
+                    Text(_deviceStatus(entry)).font(.caption).foregroundColor(.secondary)
+                    if developerMode {
+                        Text(verbatim: entry.id.uuidString)
+                            .font(.caption2).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle)
+                    }
                 }
-            }
-            Spacer()
-            if lowEnergy.hostPolicy.allowed.contains(entry.id), lowEnergy.hostPolicy.ready.contains(entry.id), !entry.isActive {
-                Button("Use device") { lowEnergy.selectHost(entry.id) }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Button { selectedInfo = entry } label: { Image(systemName: "info.circle") }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel(L10n.DeviceInfo.info)
             }
             Toggle("Allow input", isOn: Binding(
                 get: { lowEnergy.hostPolicy.allowed.contains(entry.id) },
                 set: { lowEnergy.setAllowed(entry.id, $0) }
             ))
-            .fixedSize()
+            .toggleStyle(.switch)
             .accessibilityLabel(Text("Allow input: \(entry.displayName)"))
-            Button { selectedInfo = entry } label: { Image(systemName: "info.circle") }
-                .buttonStyle(.borderless)
-                .accessibilityLabel(L10n.DeviceInfo.info)
+            if lowEnergy.hostPolicy.allowed.contains(entry.id), lowEnergy.hostPolicy.ready.contains(entry.id), !entry.isActive {
+                Button("Use device") { lowEnergy.selectHost(entry.id) }
+            }
         }
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private func _deviceStatus(_ entry: DeviceEntry) -> String {

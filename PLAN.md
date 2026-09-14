@@ -1207,3 +1207,10 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   app restart, Maingear remained allowed, reconnected without re-pairing and
   advertising stopped automatically. Windows code and HID report map are
   unchanged; final physical edge-switch confirmation is pending.
+- Setup layout correction: the fixed-size automatic toggle in the device HStack
+  caused an oversized grouped-form row and horizontal overflow. Use an explicit
+  switch beneath bounded device labels, constrain the row to its content height,
+  and truncate long identifiers. Signed build and strict lint pass. Rendered
+  screenshots now verify compact rows and side/bottom padding, including both
+  Maingear and the unknown Mac present. The unknown Mac remains unapproved while
+  Maingear stays current and advertising remains off.
