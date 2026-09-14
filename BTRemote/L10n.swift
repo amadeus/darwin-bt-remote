@@ -34,10 +34,6 @@ enum L10n {
         static var devices: LocalizedStringKey {
             "section.devices"
         }
-
-        static var battery: LocalizedStringKey {
-            "section.battery"
-        }
     }
 
     enum Status {
@@ -199,12 +195,6 @@ enum L10n {
 }
 
 extension L10n {
-    enum Battery {
-        static var level: LocalizedStringKey {
-            "battery.level"
-        }
-    }
-
     enum BluetoothState {
         static var unknown: LocalizedStringKey {
             "bluetooth_state.unknown"

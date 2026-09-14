@@ -16,7 +16,8 @@ final class HIDPeripheral: NSObject, ObservableObject {
     @Published private(set) var connectedCentrals: Set<UUID> = []
     @Published private(set) var keyboardLEDs: KeyboardLEDs = []
     @Published private(set) var lastError: String?
-    @Published private(set) var batteryLevel: UInt8 = 100
+
+    private let batteryLevel: UInt8 = 100
 
     private var centralObjects: [UUID: CBCentral] = [:]
 
@@ -125,14 +126,6 @@ final class HIDPeripheral: NSObject, ObservableObject {
         } else {
             inactiveCentrals.insert(uuid)
         }
-    }
-
-    func updateBatteryLevel(_ level: UInt8) {
-        let clamped = min(level, 100)
-        batteryLevel = clamped
-        let asHIDReport = Data([clamped])
-        cachedReports[ReportID.battery.rawValue] = asHIDReport
-        if let batteryLevelChar { _ = updateValue(asHIDReport, for: batteryLevelChar) }
     }
 
     /// if host connects but never subscribes (stale GATT cache), cycle a temp service to fire Service Changed so it re-discovers
