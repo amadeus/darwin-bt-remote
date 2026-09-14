@@ -32,6 +32,7 @@ final class CursorSpike {
 
     private func _receive(_ event: TapOutput) {
         switch event {
+        case .keyboardMonitoring: break
         case let .installed(success):
             _log("tap=\(success)")
             if success { tap?.requestToggle() } else { _finish() }

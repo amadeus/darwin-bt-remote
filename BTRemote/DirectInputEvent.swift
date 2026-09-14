@@ -5,7 +5,8 @@ struct DirectInputEvent: Sendable {
     enum Kind: Sendable {
         case keyDown(Keycode)
         case keyUp(Keycode)
-        case flagsChanged
+        case flagsChanged(capsLock: Bool)
+        case consumer(ConsumerKey, down: Bool)
         case mouseMove(Int8, Int8)
         case mouseButton(MouseButtons, Bool)
         case scroll(wheel: Int8, pan: Int8)
@@ -13,6 +14,11 @@ struct DirectInputEvent: Sendable {
 
     let kind: Kind
     let modifiers: KeyboardModifiers
+
+    init(kind: Kind, modifiers: KeyboardModifiers) {
+        self.kind = kind
+        self.modifiers = modifiers
+    }
 
     init?(type: CGEventType, event: CGEvent) {
         let flags = event.flags
@@ -23,13 +29,21 @@ struct DirectInputEvent: Sendable {
             if event.getIntegerValueField(.keyboardEventAutorepeat) != 0 {
                 return nil
             }
-            guard let key = Keycode(macVirtualKey: UInt16(event.getIntegerValueField(.keyboardEventKeycode))) else { return nil }
+            guard let key = Keycode(
+                macVirtualKey: UInt16(event.getIntegerValueField(.keyboardEventKeycode)),
+                keyboardType: UInt32(truncatingIfNeeded: event.getIntegerValueField(.keyboardEventKeyboardType))
+            )
+            else { return nil }
             kind = .keyDown(key)
         case .keyUp:
-            guard let key = Keycode(macVirtualKey: UInt16(event.getIntegerValueField(.keyboardEventKeycode))) else { return nil }
+            guard let key = Keycode(
+                macVirtualKey: UInt16(event.getIntegerValueField(.keyboardEventKeycode)),
+                keyboardType: UInt32(truncatingIfNeeded: event.getIntegerValueField(.keyboardEventKeyboardType))
+            )
+            else { return nil }
             kind = .keyUp(key)
         case .flagsChanged:
-            kind = .flagsChanged
+            kind = .flagsChanged(capsLock: flags.contains(.maskAlphaShift))
         case .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged:
             let dx = Self.clampInt8(event.getIntegerValueField(.mouseEventDeltaX))
             let dy = Self.clampInt8(event.getIntegerValueField(.mouseEventDeltaY))
@@ -46,7 +60,8 @@ struct DirectInputEvent: Sendable {
             guard wheel != 0 || pan != 0 else { return nil }
             kind = .scroll(wheel: wheel, pan: pan)
         default:
-            return nil
+            guard let media = MediaKeyEvent(type: type, event: event) else { return nil }
+            kind = .consumer(media.key, down: media.isDown)
         }
     }
 
@@ -65,46 +80,4 @@ struct DirectInputEvent: Sendable {
         default: nil
         }
     }
-}
-
-private extension KeyboardModifiers {
-    init(eventFlags flags: CGEventFlags) {
-        self.init()
-        if flags.contains(.maskControl) {
-            insert(.leftCtrl)
-        }
-        if flags.contains(.maskShift) {
-            insert(.leftShift)
-        }
-        if flags.contains(.maskAlternate) {
-            insert(.leftAlt)
-        }
-        if flags.contains(.maskCommand) {
-            insert(.leftGUI)
-        }
-    }
-}
-
-private extension Keycode {
-    init?(macVirtualKey key: UInt16) {
-        guard let code = Self.macVirtualKeys[key] else { return nil }
-        self = code
-    }
-
-    static let macVirtualKeys: [UInt16: Keycode] = [
-        0x00: .a, 0x0B: .b, 0x08: .c, 0x02: .d, 0x0E: .e, 0x03: .f, 0x05: .g, 0x04: .h,
-        0x22: .i, 0x26: .j, 0x28: .k, 0x25: .l, 0x2E: .m, 0x2D: .n, 0x1F: .o, 0x23: .p,
-        0x0C: .q, 0x0F: .r, 0x01: .s, 0x11: .t, 0x20: .u, 0x09: .v, 0x0D: .w, 0x07: .x,
-        0x10: .y, 0x06: .z,
-        0x12: .digit1, 0x13: .digit2, 0x14: .digit3, 0x15: .digit4, 0x17: .digit5,
-        0x16: .digit6, 0x1A: .digit7, 0x1C: .digit8, 0x19: .digit9, 0x1D: .digit0,
-        0x24: .return, 0x4C: .return,
-        0x35: .escape, 0x33: .backspace, 0x30: .tab, 0x31: .space,
-        0x1B: .minus, 0x18: .equal, 0x21: .leftBracket, 0x1E: .rightBracket,
-        0x2A: .backslash, 0x29: .semicolon, 0x27: .quote, 0x32: .grave,
-        0x2B: .comma, 0x2F: .period, 0x2C: .slash, 0x39: .capsLock,
-        0x7A: .f1, 0x78: .f2, 0x63: .f3, 0x76: .f4, 0x60: .f5, 0x61: .f6,
-        0x62: .f7, 0x64: .f8, 0x65: .f9, 0x6D: .f10, 0x67: .f11, 0x6F: .f12,
-        0x7C: .rightArrow, 0x7B: .leftArrow, 0x7D: .downArrow, 0x7E: .upArrow
-    ]
 }

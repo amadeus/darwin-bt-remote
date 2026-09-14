@@ -16,6 +16,8 @@ struct ToggleShortcut: Equatable, Sendable {
 /// tracks physical releases without changing the existing HID translation
 struct HandoffState: Sendable {
     var heldKeys: Set<UInt16> = []
+    var heldRawKeys: Set<Keycode> = []
+    var heldMediaKeys: Set<UInt16> = []
     var heldButtons: Set<Int64> = []
     var modifiers: CGEventFlags = []
     private(set) var pendingToggle = false
@@ -29,7 +31,8 @@ struct HandoffState: Sendable {
     }
 
     var isReleased: Bool {
-        heldKeys.isEmpty && heldButtons.isEmpty && modifiers.isDisjoint(with: ToggleShortcut.modifierMask)
+        heldKeys.isEmpty && heldRawKeys.isEmpty && heldMediaKeys.isEmpty && heldButtons.isEmpty && modifiers
+            .isDisjoint(with: ToggleShortcut.modifierMask)
     }
 
     mutating func key(code: UInt16, down: Bool, repeatEvent: Bool, flags: CGEventFlags, shortcut: ToggleShortcut) -> Bool {

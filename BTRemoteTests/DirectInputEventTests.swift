@@ -2,6 +2,34 @@ import CoreGraphics
 import XCTest
 
 final class DirectInputEventTests: XCTestCase {
+    func testControlAltForwardDeleteProducesWindowsDeleteReport() throws {
+        // macOS emits 0x75 for forward Delete, including Fn+Delete on Apple keyboards.
+        let event = try XCTUnwrap(CGEvent(keyboardEventSource: nil, virtualKey: 0x75, keyDown: true))
+        event.flags = [.maskControl, .maskAlternate, .maskSecondaryFn]
+        let input = try XCTUnwrap(DirectInputEvent(type: .keyDown, event: event))
+        guard case let .keyDown(key) = input.kind else { return XCTFail("Expected key down") }
+        XCTAssertEqual(key, .deleteForward)
+        XCTAssertEqual(Array(KeyboardReport(modifiers: input.modifiers, keys: [key]).data), [5, 0, 0x4C, 0, 0, 0, 0, 0])
+    }
+
+    func testForwardDeleteReleaseStillMapsAfterModifiersAreReleased() throws {
+        let event = try XCTUnwrap(CGEvent(keyboardEventSource: nil, virtualKey: 0x75, keyDown: false))
+        event.flags = []
+        let input = try XCTUnwrap(DirectInputEvent(type: .keyUp, event: event))
+        guard case let .keyUp(key) = input.kind else { return XCTFail("Expected key up") }
+        XCTAssertEqual(key, .deleteForward)
+        XCTAssertEqual(input.modifiers, [])
+    }
+
+    func testBackspaceRemainsDistinctFromForwardDelete() throws {
+        let event = try XCTUnwrap(CGEvent(keyboardEventSource: nil, virtualKey: 0x33, keyDown: true))
+        event.flags = [.maskControl, .maskAlternate]
+        let input = try XCTUnwrap(DirectInputEvent(type: .keyDown, event: event))
+        guard case let .keyDown(key) = input.kind else { return XCTFail("Expected key down") }
+        XCTAssertEqual(key, .backspace)
+        XCTAssertEqual(Array(KeyboardReport(modifiers: input.modifiers, keys: [key]).data), [5, 0, 0x2A, 0, 0, 0, 0, 0])
+    }
+
     func testHorizontalOnlyScrollSurvivesAndUsesHIDDirection() throws {
         try assertScroll(vertical: 0, horizontal: 3, wheel: 0, pan: -3)
         try assertScroll(vertical: 0, horizontal: -3, wheel: 0, pan: 3)

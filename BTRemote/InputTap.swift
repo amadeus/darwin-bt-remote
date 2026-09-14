@@ -11,6 +11,7 @@ struct TapConfiguration: Equatable, Sendable {
 
 enum TapOutput: Sendable {
     case installed(Bool)
+    case keyboardMonitoring(Bool)
     case begin(Int, CGPoint)
     case input(Int, DirectInputEvent, TimeInterval)
     case end(Int)
@@ -29,6 +30,8 @@ final class InputTap: @unchecked Sendable {
     private var dropNextMotion = false
     private var returnProbe: ReturnMotionProbe?
     private let log = Logger(subsystem: "io.github.jqssun.btremote", category: "Capture")
+    private var rawKeyboardReady = false
+    private var rawShortcutKeys: Set<UInt16> = []
     private var eventTap: CFMachPort?
     private var runLoop: CFRunLoop?
     private var running = false
@@ -119,7 +122,7 @@ final class InputTap: @unchecked Sendable {
         let mask = [
             CGEventType.keyDown, .keyUp, .flagsChanged, .mouseMoved, .leftMouseDown, .leftMouseUp,
             .leftMouseDragged, .rightMouseDown, .rightMouseUp, .rightMouseDragged,
-            .otherMouseDown, .otherMouseUp, .otherMouseDragged, .scrollWheel
+            .otherMouseDown, .otherMouseUp, .otherMouseDragged, .scrollWheel, MediaKeyEvent.eventType
         ].reduce(CGEventMask(0)) { $0 | CGEventMask(1) << CGEventMask($1.rawValue) }
         let refcon = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
         guard let tap = CGEvent.tapCreate(
@@ -134,6 +137,9 @@ final class InputTap: @unchecked Sendable {
         lock.withLock {
             eventTap = tap
             runLoop = loop
+            handoff.heldRawKeys.removeAll()
+            handoff.heldMediaKeys.removeAll()
+            rawShortcutKeys.removeAll()
             handoff.heldKeys = Set((0 ... 127).compactMap { code in
                 CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(code)) ? UInt16(code) : nil
             })
@@ -144,6 +150,10 @@ final class InputTap: @unchecked Sendable {
                 return CGEventSource.buttonState(.combinedSessionState, button: cgButton) ? Int64(button) : nil
             })
         }
+        let keyboard = RawKeyboardMonitor { [weak self] key, down in self?._rawKey(key, down: down) }
+        let keyboardReady = keyboard.start(on: loop)
+        lock.withLock { rawKeyboardReady = keyboardReady }
+        _emit(.keyboardMonitoring(keyboardReady))
         CFRunLoopAddSource(loop, source, .commonModes)
         let timer = CFRunLoopTimerCreateWithHandler(nil, CFAbsoluteTimeGetCurrent() + 0.02, 0.02, 0, 0) { [weak self] _ in
             self?._tick()
@@ -152,6 +162,7 @@ final class InputTap: @unchecked Sendable {
         CGEvent.tapEnable(tap: tap, enable: true)
         _emit(.installed(true))
         if lock.withLock({ running }) { CFRunLoopRun() }
+        keyboard.stop(on: loop)
         CFRunLoopTimerInvalidate(timer)
         CFMachPortInvalidate(tap)
         lock.withLock {
@@ -207,9 +218,14 @@ final class InputTap: @unchecked Sendable {
                 _emit(.disabled)
                 return false
             }
+            if type == MediaKeyEvent.eventType { return _media(event) }
             handoff.modifiers = event.flags
             let wasRemote = remote
             if type == .keyDown || type == .keyUp {
+                let code = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
+                if rawKeyboardReady, RawKeyboardState.quartzAliases.contains(code) {
+                    return _suppressRawAlias(code: code, down: type == .keyDown, flags: event.flags)
+                }
                 let consumed = handoff.key(
                     code: UInt16(event.getIntegerValueField(.keyboardEventKeycode)), down: type == .keyDown,
                     repeatEvent: event.getIntegerValueField(.keyboardEventAutorepeat) != 0,
@@ -247,6 +263,44 @@ final class InputTap: @unchecked Sendable {
             }
             return wasRemote
         }
+    }
+
+    private func _suppressRawAlias(code: UInt16, down: Bool, flags: CGEventFlags) -> Bool {
+        if !down { return rawShortcutKeys.remove(code) != nil || remote }
+        let shortcut = (remote || configuration.targetAvailable) && configuration.shortcut.matches(key: code, flags: flags)
+        return remote || rawShortcutKeys.contains(code) || shortcut
+    }
+
+    private func _rawKey(_ key: Keycode, down: Bool) {
+        lock.withLock {
+            if down { handoff.heldRawKeys.insert(key) } else { handoff.heldRawKeys.remove(key) }
+            let flags = CGEventSource.flagsState(.combinedSessionState)
+            // Raw aliases are also eligible for the configured local shortcut.
+            let alias = RawKeyboardState.aliases[key]
+            if let alias, handoff.key(
+                code: alias, down: down, repeatEvent: false, flags: flags,
+                shortcut: remote || configuration.targetAvailable ? configuration.shortcut : ToggleShortcut(enabled: false)
+            ) {
+                if down { rawShortcutKeys.insert(alias) }
+                return
+            }
+            guard remote else { return }
+            let input = DirectInputEvent(kind: down ? .keyDown(key) : .keyUp(key), modifiers: KeyboardModifiers(eventFlags: flags))
+            _emit(.input(generation, input, ProcessInfo.processInfo.systemUptime))
+        }
+    }
+
+    private func _media(_ event: CGEvent) -> Bool {
+        guard let media = MediaKeyEvent(type: MediaKeyEvent.eventType, event: event) else { return false }
+        if media.isDown {
+            handoff.heldMediaKeys.insert(media.key.rawValue)
+        } else {
+            handoff.heldMediaKeys.remove(media.key.rawValue)
+        }
+        if remote, let input = DirectInputEvent(type: MediaKeyEvent.eventType, event: event) {
+            _emit(.input(generation, input, ProcessInfo.processInfo.systemUptime))
+        }
+        return remote
     }
 
     private func _trackButtons(type: CGEventType, event: CGEvent) {

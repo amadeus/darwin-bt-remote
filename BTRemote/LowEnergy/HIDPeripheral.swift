@@ -48,7 +48,7 @@ final class HIDPeripheral: NSObject, ObservableObject {
     /// last-sent payloads for reads and new subscriptions
     private var cachedReports = HIDPeripheral.emptyReports
 
-    private var pendingBroadcast: (Data, CBMutableCharacteristic)?
+    private var pendingBroadcasts = HIDNotificationQueue<CBMutableCharacteristic>()
     private var cachedBootMouseReport = MouseReport.zero.bootData
 
     func start() {
@@ -88,7 +88,7 @@ final class HIDPeripheral: NSObject, ObservableObject {
         isAdvertising = false
         isHIDServiceAdded = false
         isReadyToSendNotification = true
-        pendingBroadcast = nil
+        pendingBroadcasts.removeAll()
         companion.reset()
         batteryServiceObj = nil
         deviceInfoServiceObj = nil
@@ -109,7 +109,9 @@ final class HIDPeripheral: NSObject, ObservableObject {
 
     func sendMouse(_ report: MouseReport) {
         cachedBootMouseReport = report.bootData
-        broadcast(report.data, reportID: .mouse)
+        let sameButtons = report.buttons.rawValue == cachedReports[ReportID.mouse.rawValue]?.first
+        let coalesceMotion = sameButtons && report.wheel == 0 && report.pan == 0
+        broadcast(report.data, reportID: .mouse, coalesceMotion: coalesceMotion)
     }
 
     func sendKeyboard(_ report: KeyboardReport) {
@@ -130,7 +132,7 @@ final class HIDPeripheral: NSObject, ObservableObject {
         if policy.target != hostPolicy.target {
             // Release on the old destination before changing recipients.
             onTargetWillChange?()
-            pendingBroadcast = nil
+            pendingBroadcasts.removeAll()
             cachedReports = Self.emptyReports
             cachedBootMouseReport = MouseReport.zero.bootData
             keyboardLEDs = []
@@ -348,38 +350,39 @@ final class HIDPeripheral: NSObject, ObservableObject {
         return char
     }
 
-    private func broadcast(_ data: Data, reportID: ReportID) {
+    private func broadcast(_ data: Data, reportID: ReportID, coalesceMotion: Bool = false) {
         cachedReports[reportID.rawValue] = data
         guard let char = charsByReportID[reportID.rawValue] else { return }
-        _ = updateValue(data, for: char)
+        _ = updateValue(data, for: char, coalesceMotion: coalesceMotion)
     }
 
     @discardableResult
-    private func updateValue(_ data: Data, for char: CBMutableCharacteristic) -> Bool {
+    private func updateValue(_ data: Data, for char: CBMutableCharacteristic, coalesceMotion: Bool = false) -> Bool {
         guard let pManager else { return false }
         let recipients = activeRecipients()
         guard !recipients.isEmpty else { return false }
         if !isReadyToSendNotification {
-            pendingBroadcast = (data, char)
+            pendingBroadcasts.append(data, target: char, coalesceMotion: coalesceMotion)
             return false
         }
         let accepted = pManager.updateValue(data, for: char, onSubscribedCentrals: recipients)
         if !accepted {
             isReadyToSendNotification = false
-            pendingBroadcast = (data, char)
+            pendingBroadcasts.append(data, target: char, coalesceMotion: coalesceMotion)
         }
         return accepted
     }
 
     private func drainPendingBroadcast() {
-        guard let (data, char) = pendingBroadcast, let pManager else { return }
-        pendingBroadcast = nil
+        guard let pManager else { return }
         let recipients = activeRecipients()
-        guard !recipients.isEmpty else { return }
-        let accepted = pManager.updateValue(data, for: char, onSubscribedCentrals: recipients)
-        if !accepted {
-            isReadyToSendNotification = false
-            pendingBroadcast = (data, char)
+        guard !recipients.isEmpty else { pendingBroadcasts.removeAll(); return }
+        while let entry = pendingBroadcasts.first {
+            guard pManager.updateValue(entry.data, for: entry.target, onSubscribedCentrals: recipients) else {
+                isReadyToSendNotification = false
+                return
+            }
+            pendingBroadcasts.removeFirst()
         }
     }
 

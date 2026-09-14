@@ -35,6 +35,7 @@ final class EdgeSwitchCoordinator: ObservableObject {
 
     @Published private(set) var isRemote = false
     @Published private(set) var targetAvailable = false
+    @Published private(set) var keyboardMonitoringReady = false
     @Published private(set) var permissionGranted = false
     @Published private(set) var secureInput = false
     @Published private(set) var displays: [EdgeDisplay] = []
@@ -271,6 +272,8 @@ final class EdgeSwitchCoordinator: ObservableObject {
 
     private func _receive(_ event: TapOutput) {
         switch event {
+        case let .keyboardMonitoring(ready):
+            keyboardMonitoringReady = ready
         case let .installed(success):
             tapStarting = false
             tapReady = success

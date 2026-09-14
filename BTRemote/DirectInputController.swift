@@ -11,6 +11,9 @@ final class DirectInputController: ObservableObject {
     private var modifiers: KeyboardModifiers = []
 
     private var sendKeyboard: ((KeyboardReport) -> Void)?
+    private var capsLock = false
+    private var pressedConsumerKeys: [ConsumerKey] = []
+    private var sendConsumer: ((ConsumerReport) -> Void)?
     private var sendMouse: ((MouseReport) -> Void)?
 
     /// retains the upstream report translation; tap and cursor lifetime belong to the coordinator
@@ -18,17 +21,22 @@ final class DirectInputController: ObservableObject {
         stop()
         sendKeyboard = hid.sendKeyboard
         sendMouse = hid.sendMouse
+        sendConsumer = hid.sendConsumer
+        capsLock = CGEventSource.flagsState(.combinedSessionState).contains(.maskAlphaShift)
         isCapturing = true
     }
 
     func stop() {
         pressedKeys.removeAll()
+        pressedConsumerKeys.removeAll()
         pressedMouseButtons = []
         modifiers = []
         sendKeyboard?(.zero)
         sendMouse?(.zero)
+        sendConsumer?(.zero)
         sendKeyboard = nil
         sendMouse = nil
+        sendConsumer = nil
         isCapturing = false
     }
 
@@ -44,8 +52,22 @@ final class DirectInputController: ObservableObject {
         case let .keyUp(key):
             pressedKeys.remove(key)
             sendKeyboardReport()
-        case .flagsChanged:
+        case let .flagsChanged(currentCapsLock):
+            if capsLock != currentCapsLock {
+                capsLock = currentCapsLock
+                // Caps Lock arrives as a latched flag, not an ordinary down/up pair.
+                // Forward each latch transition as one physical press and release.
+                pressedKeys.insert(.capsLock)
+                sendKeyboardReport()
+                pressedKeys.remove(.capsLock)
+            }
             sendKeyboardReport()
+        case let .consumer(key, down):
+            let previous = pressedConsumerKeys.last
+            pressedConsumerKeys.removeAll { $0 == key }
+            if down { pressedConsumerKeys.append(key) }
+            let current = pressedConsumerKeys.last
+            if previous != current { sendConsumer?(ConsumerReport(key: current ?? .none)) }
         case let .mouseMove(dx, dy):
             sendMouse?(MouseReport(buttons: pressedMouseButtons, dX: dx, dY: dy))
         case let .mouseButton(button, isDown):
@@ -62,6 +84,6 @@ final class DirectInputController: ObservableObject {
     }
 
     private func sendKeyboardReport() {
-        sendKeyboard?(KeyboardReport(modifiers: modifiers, keys: Array(pressedKeys).prefix(6).map(\.self)))
+        sendKeyboard?(KeyboardReport(modifiers: modifiers, keys: pressedKeys.sorted { $0.rawValue < $1.rawValue }))
     }
 }

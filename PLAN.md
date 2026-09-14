@@ -1222,3 +1222,33 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   screenshots verify Setup, Layout and Settings stay horizontally aligned.
   Vertical scrolling, the right-edge scrollbar and bottom padding were also
   checked in the running build.
+
+- Keyboard forwarding correction (QMK layout audit): Ctrl+Alt+Delete was missing
+  because forward Delete (Quartz 0x75 -> HID 0x4C) was absent from the input map.
+  Complete the SDK virtual-key map for navigation, keypad, F13-F20, ISO/JIS,
+  application/menu and volume keys; preserve left/right modifiers and synthesize
+  Caps Lock press/release pairs from its latch transitions. Capture consumer
+  media events, retain held-key state, and release keyboard/mouse/consumer reports
+  when returning or disconnecting.
+- Preserve raw PC-key identity with a non-exclusive IOHIDManager supplement on
+  the tap run loop. Print Screen/Scroll Lock/Pause remain distinct from F13-F15;
+  other standard keyboard usages omitted by Quartz (including F21-F24) use the
+  same path. Backslash/non-US hash and Insert/Help aliases are also disambiguated.
+  Suppress the corresponding duplicate Quartz events, preserve the configured
+  local toggle shortcut, wait for raw/media releases before handoff, and release
+  keys when their last physical source is unplugged. Input Monitoring is required
+  for the supplement; Layout provides the permission action if unavailable.
+  The keyboard firmware and Windows companion are unchanged.
+- Replace the shared latest-report slot under Bluetooth backpressure with ordered
+  keyboard/consumer/button transitions. Only adjacent pure-motion reports retain
+  the previous latest-motion behavior; this does not introduce motion accumulation
+  or change the mouse descriptor. No GATT/descriptor change or re-pair is needed.
+  The existing keyboard report still has six non-modifier slots; overflow now
+  emits standard ErrorRollOver and recovers all held keys as they are released.
+- Validation: 47 Swift tests cover Ctrl+Alt+Delete press/release bytes, navigation,
+  keypad, modifiers, Caps Lock, media release/repeat, raw PC/F-key distinction,
+  multiple-keyboard/unplug state, handoff release rules, and notification ordering.
+  Signed build and strict lint pass. The restarted Mac app logged raw monitoring
+  opened=true/result=0 with existing permissions; Maingear reconnected and Windows
+  edge return is ready. Physical Windows key validation remains pending; this
+  does not establish signed-out or secure-desktop behavior yet.

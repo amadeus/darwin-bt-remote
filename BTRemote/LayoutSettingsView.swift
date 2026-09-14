@@ -15,6 +15,11 @@ struct LayoutSettingsView: View {
                     Button(L10n.DirectInput.openSettings) { AccessibilityPermission.request() }
                     Text(L10n.DirectInput.permissionMessage).font(.caption)
                 }
+                if coordinator.permissionGranted, !coordinator.keyboardMonitoringReady {
+                    Button("Enable complete keyboard capture") { KeyboardMonitoringPermission.request() }
+                    Text("Allow BTRemote in Input Monitoring, then reopen it to forward Print Screen, Scroll Lock, and Pause.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
                 if coordinator.secureInput { Text(L10n.Layout.secureInput).foregroundStyle(.orange) }
                 if let error = coordinator.lastError { Text(verbatim: error).foregroundStyle(.red) }
             }

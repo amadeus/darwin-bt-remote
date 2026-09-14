@@ -49,8 +49,14 @@ targets:
     sources:
       - BTRemoteTests
       - BTRemote/LowEnergy/HIDReports.swift
+      - BTRemote/LowEnergy/HIDNotificationQueue.swift
       - BTRemote/LowEnergy/HIDProfile.swift
       - BTRemote/DirectInputEvent.swift
+      - BTRemote/MacKeyboardMapping.swift
+      - BTRemote/RawKeyboardState.swift
+      - BTRemote/MediaKeyEvent.swift
+      - BTRemote/DirectInputController.swift
+      - BTRemote/HIDInputValue.swift
       - BTRemote/EdgeGeometry.swift
       - BTRemote/ReturnMotionProbe.swift
       - BTRemote/HandoffState.swift
