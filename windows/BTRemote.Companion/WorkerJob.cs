@@ -1,0 +1,66 @@
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
+
+namespace BTRemote.Companion;
+
+// keep a crashed service from leaving its BLE worker alive beside the replacement.
+internal sealed class WorkerJob : IDisposable
+{
+    private readonly SafeFileHandle handle;
+
+    public WorkerJob()
+    {
+        handle = CreateJobObject(IntPtr.Zero, null);
+        if (handle.IsInvalid) throw new Win32Exception(Marshal.GetLastWin32Error());
+        var limits = new ExtendedLimits { Basic = new BasicLimits { Flags = 0x2000 } }; // KILL_ON_JOB_CLOSE
+        if (!SetInformationJobObject(handle, 9, ref limits, (uint)Marshal.SizeOf<ExtendedLimits>()))
+        {
+            var error = Marshal.GetLastWin32Error();
+            handle.Dispose();
+            throw new Win32Exception(error);
+        }
+    }
+
+    public void Add(Process process)
+    {
+        if (!AssignProcessToJobObject(handle, process.Handle))
+        {
+            var error = Marshal.GetLastWin32Error();
+            if (!process.HasExited) process.Kill(entireProcessTree: true);
+            throw new Win32Exception(error);
+        }
+    }
+
+    public void Dispose() => handle.Dispose();
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct BasicLimits
+    {
+        public long ProcessTime, JobTime;
+        public uint Flags;
+        public nuint MinimumWorkingSet, MaximumWorkingSet;
+        public uint ActiveProcesses;
+        public nuint Affinity;
+        public uint PriorityClass, SchedulingClass;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ExtendedLimits
+    {
+        public BasicLimits Basic;
+        public ulong ReadOperations, WriteOperations, OtherOperations, ReadBytes, WriteBytes, OtherBytes;
+        public nuint ProcessMemory, JobMemory, PeakProcessMemory, PeakJobMemory;
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, EntryPoint = "CreateJobObjectW", SetLastError = true)]
+    private static extern SafeFileHandle CreateJobObject(IntPtr securityAttributes, string? name);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetInformationJobObject(SafeFileHandle job, int informationClass,
+        ref ExtendedLimits information, uint length);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool AssignProcessToJobObject(SafeFileHandle job, IntPtr process);
+}

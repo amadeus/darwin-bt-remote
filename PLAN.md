@@ -321,7 +321,19 @@ and pre-boot disk-unlock screens are outside the Windows service's lifetime.
   settings UI for device/monitor selection, thresholds, clipboard and status.
   Local, session-scoped named-pipe IPC with explicit ACLs connects the UI and
   workers to the service; privileged requests are validated. Install/uninstall
-  requires elevation once; everyday use and service startup need no UAC prompt.
+  requires elevation; service startup and ordinary status/settings viewing need
+  no UAC prompt. Administrative changes may elevate the specific operation.
+- Tray service controls: **Start Service**, **Stop Service**, current SCM status,
+  and **Start automatically with Windows** (checked by default). The checkbox
+  selects Automatic versus Manual startup; it does not start/stop the running
+  service. Manual Start runs until explicitly stopped or Windows shuts down,
+  including through logout. Manual Stop stays stopped until Start or the next
+  boot with Automatic enabled; failure recovery must not undo an intentional
+  stop. **Quit Tray** only closes the UI. Service control and startup changes
+  use Windows service permissions, elevating only the operation when needed;
+  do not grant general service-configuration rights to unprivileged users.
+- The service owns switching state and clipboard coordination. Desktop workers
+  perform session-bound operations on its behalf; the tray owns neither.
 - `ClipboardWatcher` (M4) runs in the logged-in user session, never on Winlogon
   or a secure desktop. Suspend sync while locked/logged out and clear queued
   clipboard payloads on session changes. Keep user clipboard data out of the
@@ -983,4 +995,24 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   service and remain available when logged out, including boot before first
   login. Replaced the tray-owned lifecycle with service + desktop worker +
   optional tray UI; added service-context BLE and Winlogon validation gates to
-  M3. This is a plan update; no Windows service implementation exists yet.
+  M3. That update preceded the service implementation recorded below.
+
+- M3 first service checkpoint: added a self-contained .NET 10 Windows service
+  and optional tray/settings UI, Start/Stop/Automatic-vs-Manual startup controls,
+  protected machine configuration, and installer/uninstaller. A separate STA
+  Bluetooth worker inherits the service account in Session 0, retains the
+  selected paired endpoint, requests uncached discovery, maintains the GATT
+  session, and retries on connection/service changes. A watchdog bounds stalled
+  operations; a Windows job ties the worker lifetime to the service.
+- This first gate intentionally uses the existing Mac HID services and does
+  not change the Mac app. Windows service-account reconnect, sign-out and
+  pre-login recovery must be tested using windows/README.md before advancing.
+  Custom GATT subscribe/write coexistence and Winlogon desktop-worker probes
+  are the subsequent M3 gates; switching/clipboard coordination are not yet
+  implemented by the Windows service.
+- Local verification for the first service checkpoint: Windows x64 cross-build
+  and self-contained publish pass with zero warnings; 13 core tests pass on
+  macOS. PowerShell installer syntax and native-argument round-trip checks pass
+  under portable PowerShell 7.6.6. Actual Windows service/WinRT/tray execution
+  and Windows PowerShell 5.1 execution remain manual/Windows CI checks. The Mac
+  formatter/linter pass; the running Mac app was not restarted or changed.
