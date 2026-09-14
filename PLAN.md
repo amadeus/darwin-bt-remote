@@ -1345,3 +1345,12 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   peripheral trace method to satisfy CI's identifier naming rule. Formatting,
   strict lint, signed Mac build, 49 Swift tests and 45 Windows core tests pass
   locally. Windows EXE lifecycle validation requires the next Windows CI run.
+- Windows CI lifecycle harness correction: cleanup used Stop-Process without
+  waiting before deleting the mapped EXE, and cleanup exceptions hid the original
+  assertion. Wait for exact test-binary processes to exit, attempt each cleanup
+  step, report cleanup errors separately and rethrow the original failure.
+  Launch test processes through System.Diagnostics.Process to retain exit codes
+  for short-lived commands under Windows PowerShell. Add command progress and
+  failure diagnostics. Local PowerShell checks cover parsing, zero/nonzero exit
+  codes, termination waiting and injected primary/cleanup failures. Full Windows
+  installation/update execution remains dependent on the next CI run.

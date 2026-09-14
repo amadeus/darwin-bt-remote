@@ -13,15 +13,34 @@ if ((Get-Service BTRemoteCompanion -ErrorAction SilentlyContinue) -or
     (Test-Path -LiteralPath $shortcut)) {
     throw 'This test requires a clean machine without an existing BTRemote installation.'
 }
+function Start-CompanionProcess {
+    param([string] $Path, [string[]] $Command = @())
+    # Retain the native process handle, including for short-lived commands.
+    # Windows PowerShell's Start-Process -PassThru can lose their exit code.
+    $start = [Diagnostics.ProcessStartInfo]::new()
+    $start.FileName = $Path
+    $start.UseShellExecute = $false
+    # All test arguments are fixed switches or the literal "manual".
+    if ($Command | Where-Object { $_ -notmatch '^[a-z-]+$' }) { throw 'Unexpected test argument.' }
+    $start.Arguments = $Command -join ' '
+    return [Diagnostics.Process]::Start($start)
+}
+function Stop-CompanionProcess {
+    param([Diagnostics.Process] $Process)
+    if (-not $Process.HasExited) { $Process.Kill() }
+    if (-not $Process.WaitForExit(10000)) { throw "Process $($Process.Id) did not exit." }
+}
 function Invoke-Companion {
     param([string] $Path, [string[]] $Command)
-    $process = Start-Process -FilePath $Path -ArgumentList $Command -PassThru
+    Write-Host "Running companion: $Command"
+    $process = Start-CompanionProcess $Path $Command
     try {
         if (-not $process.WaitForExit(60000)) {
-            $process.Kill()
+            Stop-CompanionProcess $process
             throw "Companion timed out: $Command"
         }
         if ($process.ExitCode -ne 0) { throw "Companion failed ($($process.ExitCode)): $Command" }
+        Write-Host "Completed companion: $Command"
     } finally { $process.Dispose() }
 }
 function Assert-Service {
@@ -33,6 +52,8 @@ function Assert-Service {
         }
     } finally { $service.Dispose() }
 }
+$failure = $null
+$cleanupErrors = [Collections.Generic.List[string]]::new()
 try {
     Invoke-Companion $source @('--install')
     Assert-Service 'Running' 'Automatic'
@@ -56,7 +77,8 @@ try {
     $settings = Join-Path $data 'settings.json'
     [IO.File]::WriteAllText($settings, '{"DeviceId":"test-selected-mac","DeviceName":"Keep this Mac"}')
     $before = (Get-FileHash -LiteralPath $settings).Hash
-    $tray = Start-Process -FilePath $binary -PassThru
+    Write-Host 'Checking update with the installed tray open.'
+    $tray = Start-CompanionProcess $binary
     try {
         if (-not $tray.WaitForInputIdle(10000)) { throw 'Installed EXE did not open its UI.' }
         Invoke-Companion $source @('--install')
@@ -71,7 +93,8 @@ try {
     Assert-Service 'Running' 'Manual'
     Invoke-Companion $binary @('--stop')
     # An identical downloaded EXE should just open the installed window; no install.
-    $launcher = Start-Process -FilePath $source -PassThru
+    Write-Host 'Checking downloaded EXE handoff and settings reopening.'
+    $launcher = Start-CompanionProcess $source
     try {
         if (-not $launcher.WaitForExit(15000) -or $launcher.ExitCode -ne 0) { throw 'Downloaded EXE did not hand off to installed UI.' }
     } finally { $launcher.Dispose() }
@@ -81,7 +104,7 @@ try {
     try {
         if (-not $tray[0].CloseMainWindow()) { throw 'Could not close settings to test reopening.' }
         Start-Sleep -Milliseconds 500
-        $again = Start-Process -FilePath $source -PassThru
+        $again = Start-CompanionProcess $source
         try {
             if (-not $again.WaitForExit(15000) -or $again.ExitCode -ne 0) { throw 'Could not reopen companion.' }
         } finally { $again.Dispose() }
@@ -93,16 +116,38 @@ try {
         if ($tray[0].MainWindowHandle -eq 0 -or $tray[0].HasExited) { throw 'Existing tray did not reopen settings.' }
     } finally { $tray[0].Dispose() }
     Write-Host 'EXE installation, update, state preservation, permissions and service controls passed.'
-} finally {
-    $service = Get-Service BTRemoteCompanion -ErrorAction SilentlyContinue
-    if ($service) {
-        try {
-            if ($service.Status -ne 'Stopped') { $service.Stop(); $service.WaitForStatus('Stopped', [TimeSpan]::FromSeconds(30)) }
-            & "$env:SystemRoot\System32\sc.exe" delete BTRemoteCompanion
-        } finally { $service.Dispose() }
+} catch {
+    $failure = $_
+    Write-Host "Lifecycle test failed before cleanup: $($_ | Out-String)"
+    foreach ($name in @('status.json', 'service.log')) {
+        $path = Join-Path $data $name
+        if (Test-Path -LiteralPath $path) { Get-Content -LiteralPath $path -Tail 30 -ErrorAction Continue | Out-Host }
     }
-    Get-Process -Name 'BTRemote.Companion' -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $binary } | Stop-Process -Force
+} finally {
+    # Cleanup must finish process termination before deleting mapped EXEs, and
+    # must not replace the original assertion with a secondary cleanup error.
+    try {
+        $service = Get-Service BTRemoteCompanion -ErrorAction SilentlyContinue
+        if ($service) {
+            try {
+                if ($service.Status -ne 'Stopped') { $service.Stop(); $service.WaitForStatus('Stopped', [TimeSpan]::FromSeconds(30)) }
+                & "$env:SystemRoot\System32\sc.exe" delete BTRemoteCompanion
+                if ($LASTEXITCODE -ne 0) { throw "Service deletion failed: $LASTEXITCODE" }
+            } finally { $service.Dispose() }
+        }
+    } catch { $cleanupErrors.Add($_.ToString()) }
+    foreach ($process in @(Get-Process -Name 'BTRemote.Companion' -ErrorAction SilentlyContinue)) {
+        try {
+            if ($process.Path -eq $binary -or $process.Path -eq $source) { Stop-CompanionProcess $process }
+        } catch { $cleanupErrors.Add($_.ToString()) }
+        finally { $process.Dispose() }
+    }
     foreach ($path in @($shortcut, $install, $data)) {
-        if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Recurse -Force }
+        try {
+            if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Recurse -Force }
+        } catch { $cleanupErrors.Add($_.ToString()) }
     }
 }
+foreach ($message in $cleanupErrors) { Write-Warning "Cleanup failed: $message" }
+if ($failure) { throw $failure }
+if ($cleanupErrors.Count -ne 0) { throw 'Lifecycle test cleanup failed; see warnings above.' }
