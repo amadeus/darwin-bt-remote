@@ -6,6 +6,7 @@ import Foundation
 final class DirectInputController: ObservableObject {
     @Published private(set) var isCapturing = false
 
+    private let defaults: UserDefaults
     private var pressedKeys: Set<Keycode> = []
     private var pressedMouseButtons: MouseButtons = []
     private var modifiers: KeyboardModifiers = []
@@ -15,6 +16,10 @@ final class DirectInputController: ObservableObject {
     private var pressedConsumerKeys: [ConsumerKey] = []
     private var sendConsumer: ((ConsumerReport) -> Void)?
     private var sendMouse: ((MouseReport) -> Void)?
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
 
     /// retains the upstream report translation; tap and cursor lifetime belong to the coordinator
     func start(_ hid: HIDInput) {
@@ -78,7 +83,11 @@ final class DirectInputController: ObservableObject {
             }
             sendMouse?(MouseReport(buttons: pressedMouseButtons))
         case let .scroll(wheel, pan):
-            sendMouse?(MouseReport(buttons: pressedMouseButtons, wheel: wheel, pan: pan))
+            // Source deltas are already clamped to -127...127, so negation is safe.
+            // Read on each scroll so settings changes apply during capture too.
+            let vertical = defaults.bool(forKey: AppSettings.invertVerticalScrollKey) ? -wheel : wheel
+            let horizontal = defaults.bool(forKey: AppSettings.invertHorizontalScrollKey) ? -pan : pan
+            sendMouse?(MouseReport(buttons: pressedMouseButtons, wheel: vertical, pan: horizontal))
             sendMouse?(MouseReport(buttons: pressedMouseButtons))
         }
     }

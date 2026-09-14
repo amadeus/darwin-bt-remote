@@ -3,6 +3,8 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var lowEnergy: HIDPeripheral
     @EnvironmentObject private var names: DeviceNameStore
+    @AppStorage(AppSettings.invertVerticalScrollKey) private var invertVerticalScroll = false
+    @AppStorage(AppSettings.invertHorizontalScrollKey) private var invertHorizontalScroll = false
     @State private var showReset = false
     @AppStorage(AppSettings.developerModeKey) private var developerMode = false
     @AppStorage(AppSettings.useServiceChangedKey) private var forceServiceChanged = true
@@ -18,6 +20,12 @@ struct SettingsView: View {
 
     private var form: some View {
         Form {
+            Section("Windows scrolling") {
+                Toggle("Invert vertical scrolling", isOn: $invertVerticalScroll)
+                    .toggleStyle(.switch)
+                Toggle("Invert horizontal scrolling", isOn: $invertHorizontalScroll)
+                    .toggleStyle(.switch)
+            }
             Section(footer: Text(L10n.Settings.forceServiceChangedHint)) {
                 Toggle(L10n.Settings.forceServiceChanged, isOn: $forceServiceChanged)
                     .onChange(of: forceServiceChanged) {

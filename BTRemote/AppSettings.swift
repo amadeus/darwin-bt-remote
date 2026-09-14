@@ -9,6 +9,9 @@ enum AppSettings {
     static let hasSeenWelcomeKey = "BTRemote.hasSeenWelcome"
     static let advertisedNameKey = "BTRemote.advertisedName"
 
+    static let invertVerticalScrollKey = "BTRemote.invertVerticalScroll"
+    static let invertHorizontalScrollKey = "BTRemote.invertHorizontalScroll"
+
     static let edgeSwitchEnabledKey = "BTRemote.edgeSwitchEnabled"
     static let edgeDisplayUUIDKey = "BTRemote.edgeDisplayUUID"
     static let edgeSideKey = "BTRemote.edgeSide"

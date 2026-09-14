@@ -1264,3 +1264,13 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   secure-screen-close/edge-return verification is pending. All 38 .NET tests
   pass; the win-x64 self-contained EXE publishes without warnings/errors and
   the replacement ZIP is verified.
+
+- Windows scroll preferences: Settings now has independent vertical/horizontal
+  inversion switches, both defaulting off. Save with AppStorage/UserDefaults and
+  apply per scroll report so changes take effect immediately, including during
+  capture. Only Windows HID scroll axes change; pointer movement and button state
+  are preserved. Signed Mac build, strict lint and all 48 Swift tests pass; the
+  added regression checks all four settings combinations on diagonal boundary
+  deltas, live preference changes and held-button/release reports. Running Settings
+  UI verified with both switches and existing compact padding. No Windows update
+  or re-pairing is needed for these preferences.

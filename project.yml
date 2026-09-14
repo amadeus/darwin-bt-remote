@@ -56,6 +56,7 @@ targets:
       - BTRemote/RawKeyboardState.swift
       - BTRemote/MediaKeyEvent.swift
       - BTRemote/DirectInputController.swift
+      - BTRemote/AppSettings.swift
       - BTRemote/HIDInputValue.swift
       - BTRemote/EdgeGeometry.swift
       - BTRemote/ReturnMotionProbe.swift
