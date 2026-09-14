@@ -1214,3 +1214,11 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   screenshots now verify compact rows and side/bottom padding, including both
   Maingear and the unknown Mac present. The unknown Mac remains unapproved while
   Maingear stays current and advertising remains off.
+- Shared form scrolling correction: negative horizontal scroll-content margins
+  allowed sideways movement on every tab. Keep those margins at zero and expand
+  the form viewport to preserve the 10-point grouped inset; compensate the
+  scrollbar inset, clip the viewport and use size-based horizontal bounce.
+  Signed build and strict lint pass. Live left/right scroll checks with
+  screenshots verify Setup, Layout and Settings stay horizontally aligned.
+  Vertical scrolling, the right-edge scrollbar and bottom padding were also
+  checked in the running build.
