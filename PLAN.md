@@ -1138,3 +1138,23 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   build, all 21 Swift tests and strict lint pass; physical feel confirmation
   remains pending.
   Reference: https://github.com/glfw/glfw/commit/157ebb80aafe263b86fd450f21a193f0412fb717
+- The reassociation-only change did not resolve the user's return freeze.
+  Added a bounded one-second tap diagnostic comparing physical movement with
+  cursor-position changes. The live baseline showed first raw movement at
+  4 ms, first cursor movement at 261 ms, and 30 movement events at the fixed
+  return position, while the restoration calls completed in 3 ms. This
+  isolates the observed freeze to local cursor-warp suppression.
+- Bracket the final return warp with the legacy suppression interval set to
+  zero and restored to its 0.25 s default, then reassociate as before. This
+  follows Wine's fallback for systems where reassociation alone is insufficient;
+  the symbol is present on this Mac. Only the Mac return warp changes; HID
+  translation and Windows code are untouched. The diagnostic logs timing and
+  counts only, ends on first movement or timeout, and has regression tests for
+  fixed-position movement versus an idle user. Signed build, 23 Swift tests
+  and strict lint pass; the new process is running for live comparison.
+  Reference: https://github.com/wine-mirror/wine/blob/master/dlls/winemac.drv/cocoa_app.m#L1061-L1081
+- Live comparison succeeded: ten post-fix Windows edge returns showed first
+  cursor movement at 9–31 ms (most 12–17 ms), with only 0–2 fixed-position
+  movement events, versus the baseline 261 ms and 30 fixed-position events.
+  The measured quarter-second freeze is removed. The updated signed Mac app
+  remains running; no Windows update was needed.

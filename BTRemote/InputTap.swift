@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import os
 
 struct TapConfiguration: Equatable, Sendable {
     var targetAvailable = false
@@ -26,6 +27,8 @@ final class InputTap: @unchecked Sendable {
     private var edgeArmed = false
     private var location = CGPoint.zero
     private var dropNextMotion = false
+    private var returnProbe: ReturnMotionProbe?
+    private let log = Logger(subsystem: "io.github.jqssun.btremote", category: "Capture")
     private var eventTap: CFMachPort?
     private var runLoop: CFRunLoop?
     private var running = false
@@ -96,6 +99,13 @@ final class InputTap: @unchecked Sendable {
         }
     }
 
+    func observeReturn(since startedAt: TimeInterval) {
+        lock.withLock {
+            guard !remote, let position = CGEvent(source: nil)?.location else { return }
+            returnProbe = ReturnMotionProbe(startedAt: startedAt, origin: position)
+        }
+    }
+
     func isCurrent(_ value: Int) -> Bool {
         lock.withLock { generation == value }
     }
@@ -153,6 +163,10 @@ final class InputTap: @unchecked Sendable {
     private func _tick() {
         lock.withLock {
             guard running else { return }
+            if let result = returnProbe?.expired(now: ProcessInfo.processInfo.systemUptime) {
+                log.notice("\(result, privacy: .public)")
+                returnProbe = nil
+            }
             // the last local key-up has returned from its callback before this timer can commit
             if handoff.takeToggle() {
                 if remote { _end() } else if configuration.targetAvailable { _begin() }
@@ -168,6 +182,7 @@ final class InputTap: @unchecked Sendable {
     private func _begin(fromEdge: Bool = false) {
         guard let geometry = configuration.geometry else { return }
         remote = true
+        returnProbe = nil
         generation += 1
         edgeArmed = false
         dropNextMotion = true
@@ -208,6 +223,13 @@ final class InputTap: @unchecked Sendable {
             _trackButtons(type: type, event: event)
             let motion = [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged].contains(type)
             if !remote {
+                if motion, returnProbe != nil, let point = CGEvent(source: nil)?.location {
+                    let delta = event.getIntegerValueField(.mouseEventDeltaX) != 0 || event.getIntegerValueField(.mouseEventDeltaY) != 0
+                    if let result = returnProbe?.observe(now: ProcessInfo.processInfo.systemUptime, position: point, hasDelta: delta) {
+                        log.notice("\(result, privacy: .public)")
+                        returnProbe = nil
+                    }
+                }
                 location = event.location
                 if motion, dropNextMotion {
                     dropNextMotion = false

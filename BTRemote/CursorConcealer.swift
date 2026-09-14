@@ -5,8 +5,10 @@ import Darwin
 /// resolves the same background cursor property used by Deskflow
 @MainActor
 final class CursorConcealer {
+    private typealias SetSuppressionInterval = @convention(c) (Double) -> Int32
     private typealias Connection = @convention(c) () -> Int32
     private typealias SetProperty = @convention(c) (Int32, Int32, CFString, CFTypeRef) -> Int32
+    private let setSuppressionInterval: SetSuppressionInterval?
     private let connection: Connection?
     private let setProperty: SetProperty?
     private var panel: NSPanel?
@@ -16,6 +18,9 @@ final class CursorConcealer {
 
     init() {
         let handle = dlopen(nil, RTLD_LAZY)
+        // the legacy warp API uses this interval, not a synthetic CGEventSource's
+        setSuppressionInterval = handle.flatMap { dlsym($0, "CGSetLocalEventsSuppressionInterval") }
+            .map { unsafeBitCast($0, to: SetSuppressionInterval.self) }
         connection = handle.flatMap { dlsym($0, "_CGSDefaultConnection") }.map { unsafeBitCast($0, to: Connection.self) }
         setProperty = handle.flatMap { dlsym($0, "CGSSetConnectionProperty") }.map { unsafeBitCast($0, to: SetProperty.self) }
     }
@@ -57,7 +62,13 @@ final class CursorConcealer {
         guard origin != nil || panel != nil || hidden else { return }
         // reassociate after warping: reversing this order can leave local motion
         // suppressed briefly after return (also handled by GLFW's Cocoa backend)
-        if let position = point ?? origin { CGWarpMouseCursorPosition(position) }
+        if let position = point ?? origin {
+            // measured 261 ms of fixed cursor position despite physical movement;
+            // bracket this warp as Wine does, then restore the legacy default
+            _ = setSuppressionInterval?(0)
+            CGWarpMouseCursorPosition(position)
+            _ = setSuppressionInterval?(0.25)
+        }
         CGAssociateMouseAndMouseCursorPosition(1)
         if hidden {
             CGDisplayShowCursor(CGMainDisplayID())

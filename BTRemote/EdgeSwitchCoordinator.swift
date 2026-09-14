@@ -145,6 +145,7 @@ final class EdgeSwitchCoordinator: ObservableObject {
         companionCapture = false
         tap.forceLocal()
         cursor.restore(at: point)
+        if wasRemote { tap.observeReturn(since: startedAt) }
         directInput.stop()
         isRemote = false
         captureTarget = nil

@@ -52,6 +52,7 @@ targets:
       - BTRemote/LowEnergy/HIDProfile.swift
       - BTRemote/DirectInputEvent.swift
       - BTRemote/EdgeGeometry.swift
+      - BTRemote/ReturnMotionProbe.swift
       - BTRemote/HandoffState.swift
       - BTRemote/Companion/CompanionProtocol.swift
     settings:
