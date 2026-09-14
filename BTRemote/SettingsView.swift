@@ -5,8 +5,6 @@ struct SettingsView: View {
     @EnvironmentObject private var names: DeviceNameStore
     @Environment(\.hid) private var hid
     @State private var showReset = false
-    @AppStorage(AppSettings.touchpadSensitivityKey) private var touchpadSensitivity = AppSettings.defaultPointerSensitivity
-    @AppStorage(AppSettings.scrollSensitivityKey) private var scrollSensitivity = AppSettings.defaultScrollSensitivity
     @AppStorage(AppSettings.developerModeKey) private var developerMode = false
     @AppStorage(AppSettings.useServiceChangedKey) private var forceServiceChanged = true
     @AppStorage(AppSettings.hasSeenWelcomeKey) private var hasSeenWelcome = false
@@ -21,10 +19,6 @@ struct SettingsView: View {
 
     private var form: some View {
         Form {
-            Section(header: Text(L10n.Settings.trackpad)) {
-                sensitivityRow(L10n.Settings.trackingSpeed, value: $touchpadSensitivity, range: AppSettings.pointerSensitivityRange)
-                sensitivityRow(L10n.Settings.scrollSpeed, value: $scrollSensitivity, range: AppSettings.scrollSensitivityRange)
-            }
             Section(footer: Text(L10n.Settings.forceServiceChangedHint)) {
                 Toggle(L10n.Settings.forceServiceChanged, isOn: $forceServiceChanged)
                     .onChange(of: forceServiceChanged) {
@@ -81,19 +75,6 @@ struct SettingsView: View {
                 Text(Double(hid.batteryLevel) / 100, format: .percent.precision(.fractionLength(0)))
                     .foregroundColor(.secondary)
             }
-        }
-    }
-
-    private func sensitivityRow(_ title: LocalizedStringKey, value: Binding<Double>, range: ClosedRange<Double>) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(title)
-                Spacer()
-                Text(value.wrappedValue, format: .number.precision(.fractionLength(1)))
-                    .foregroundColor(.secondary)
-                    + Text(verbatim: "×").foregroundColor(.secondary)
-            }
-            Slider(value: value, in: range, step: 0.1)
         }
     }
 }

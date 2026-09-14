@@ -4,7 +4,7 @@ struct ContentView: View {
     @State private var tab = Tab.setup
 
     private enum Tab {
-        case setup, layout, remote, settings
+        case setup, layout, settings
     }
 
     var body: some View {
@@ -15,9 +15,6 @@ struct ContentView: View {
             LayoutSettingsView()
                 .tabItem { Label(L10n.Layout.title, systemImage: "rectangle.split.2x1") }
                 .tag(Tab.layout)
-            RemoteTabView(goToSetup: { tab = .setup })
-                .tabItem { Label(L10n.Tab.remote, systemImage: "keyboard") }
-                .tag(Tab.remote)
             SettingsView()
                 .tabItem { Label(L10n.Tab.settings, systemImage: "slider.horizontal.3") }
                 .tag(Tab.settings)

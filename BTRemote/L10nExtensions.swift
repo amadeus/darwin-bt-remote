@@ -142,18 +142,6 @@ extension L10n {
     }
 
     enum Settings {
-        static var trackpad: LocalizedStringKey {
-            "settings.trackpad"
-        }
-
-        static var trackingSpeed: LocalizedStringKey {
-            "settings.tracking_speed"
-        }
-
-        static var scrollSpeed: LocalizedStringKey {
-            "settings.scroll_speed"
-        }
-
         static var connection: LocalizedStringKey {
             "settings.connection"
         }
