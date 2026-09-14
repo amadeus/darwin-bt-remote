@@ -36,6 +36,7 @@ struct BTRemoteApp: App {
         .windowResizability(.contentSize)
         MenuBarExtra {
             Text(coordinator.isRemote ? L10n.Layout.remote : L10n.Layout.local)
+            Text(verbatim: coordinator.companionStatus)
             Text(verbatim: coordinator.shortcutLabel)
             Button(L10n.Layout.openControls) {
                 openWindow(id: "controls")

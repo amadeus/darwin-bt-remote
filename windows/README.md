@@ -1,11 +1,10 @@
-# Windows companion: service reconnect checkpoint
+# Windows companion: edge-return checkpoint
 
-This first M3 build tests automatic Bluetooth recovery under a Windows service
-account. It includes the service, its isolated Bluetooth worker, an optional
-tray/settings UI, and Start/Stop/automatic-start controls. Desktop edge return,
-matching cursor placement, custom companion GATT traffic, and clipboard sync
-are not implemented yet. The existing Mac edge switch and return hotkey still
-provide control.
+This M3 build adds signed-in Windows edge return and proportional cursor
+placement to the existing service reconnect support. The service owns the BLE
+control channel and launches a worker in the active console user's desktop.
+The optional tray configures the service; closing it does not stop switching.
+Clipboard sync and Winlogon desktop switching are still pending.
 
 ## Install and configure
 
@@ -14,9 +13,13 @@ provide control.
    administrator prompt. No .NET SDK or runtime installation is needed.
 3. Open **BTRemote Companion** from the Windows Start menu. Select the paired Mac
    and click **Use selected Mac**; approve the configuration change.
-4. Watch the Bluetooth status. `Discovered` means uncached GATT discovery found
-   HID; it does **not** prove Windows subscribed to keyboard/mouse input. Check
-   the Mac's Setup screen and try controlling Windows.
+4. Run the matching new Mac build. In **Layout → Windows**, wait for **Windows
+   edge return ready**. Choose the PC display there if its primary display is
+   not the one next to your Mac. The PC uses the edge opposite the Mac edge.
+5. Cross the Mac edge; the Windows pointer should appear at the matching
+   position along its edge. Push back against that Windows edge to return to
+   the Mac. Release held keys/buttons before pushing back. The Mac hotkey still
+   returns immediately after its own keys are released.
 
 The service runs as LocalSystem, including before login and after sign-out. Its
 BLE worker inherits that identity in Session 0 and uses a dedicated STA message
@@ -45,26 +48,38 @@ Service/configuration changes request administrator permission. Opening settings
 and viewing status do not. The tray's automatic-start checkbox reads actual
 Windows service configuration, not a separate app preference.
 
-## First manual checkpoint
+## Signed-in edge checkpoint
 
-First verify reconnect while signed in: restart the Mac app, leave the pairing
-intact, and confirm the service restores Mac HID subscriptions and control.
-Then choose **Quit Tray**, sign out of Windows (not just lock), and restart the
-Mac app again. Verify you can control the Windows sign-in screen and use the
-Mac hotkey to return. Finally reboot the PC with automatic startup enabled and
-try control before signing in. Confirm Stop stays stopped, including with
-automatic startup checked.
+Keep the existing pairing; quit the tray and run Install.cmd from this new ZIP
+to update the service. Leave the service running and test:
 
-After signing in again, use **Open diagnostics** in the tray. Send the status
-from `status.json` and the relevant portion of `service.log` from
-`C:\ProgramData\BTRemote`. Logs include discovery results, HRESULTs, the service
-identity, and session transitions. They do not record keys, mouse movement,
-clipboard contents, or passwords. Logs rotate at 2 MiB with one retained file.
-Do not re-pair just to hide a service-account failure; report its HRESULT first.
+- Cross at roughly the top, middle and bottom of the Mac edge. Placement on the
+  selected Windows display should match; return should preserve that fraction.
+- Push against the corresponding Windows edge to return. A shared border with
+  another Windows display is not an exit; use an exposed part of the edge.
+- Hold a key or mouse button while pushing back: control must stay on Windows.
+  Release it, then push again. No key or button should remain stuck.
+- Return using the Mac hotkey, then move the PC's own mouse: no delayed switch
+  should occur. Quit the tray and repeat edge switching; it should still work.
+- Restart the Mac app and confirm both HID and companion reconnect without
+  re-pairing. If the companion drops while remote, the Mac restores local input
+  after its heartbeat expires. A desktop change disarms the current return;
+  use the hotkey and cross again after returning to the normal desktop.
 
-If recovery fails in service context, stop here and report the output. The
-working interactive PowerShell discovery script is still available in the repo;
-native GATT recovery will be evaluated next if this service-context spike fails.
+Signed-out/pre-login testing is deferred at Amadeus's request. The service
+lifecycle remains available while signed out, but this desktop worker only
+runs under a signed-in console user's token. UAC/lock/Winlogon placement and
+edge return are not claimed by this checkpoint. The local Mac hotkey remains
+available when edge return is unavailable or an application confines the PC
+cursor. Native Raw Input device matching and pinned-edge deltas still need
+confirmation on the actual Windows machine.
+
+Use **Open diagnostics** in the tray for `status.json` and `service.log` in
+`C:\ProgramData\BTRemote`. Logs include discovery results, HRESULTs, desktop
+readiness, service identity and session transitions. They do not record keys,
+mouse movement, clipboard contents or passwords. Logs rotate at 2 MiB with one
+retained file. If status remains **Waiting for the selected Mac's HID mouse**,
+report that status; do not remove the pairing as a first troubleshooting step.
 
 ## Remove or update
 
@@ -85,8 +100,10 @@ dotnet test windows/BTRemote.Companion.Tests -c Release
 
 Use `win-arm64` for an ARM Windows PC. `BTREMOTE_DOTNET` can point at an isolated
 SDK. ZIPs are written to `.build/windows/`. Core tests run on macOS; service,
-WinRT and tray execution must be verified on Windows.
+WinRT, desktop workers, Raw Input and tray execution must be verified on Windows.
 
 References: [Microsoft GATT connection behavior](https://learn.microsoft.com/en-us/windows/apps/develop/devices-sensors/gatt-client),
 [service isolation](https://learn.microsoft.com/en-us/windows/win32/services/interactive-services),
 and [service access rights](https://learn.microsoft.com/en-us/windows/win32/services/service-security-and-access-rights).
+
+Desktop worker API references: [CreateProcessAsUser](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessasuserw) and [Microsoft device instance property definitions](https://github.com/microsoft/win32metadata/blob/main/generation/WinSDK/RecompiledIdlHeaders/shared/devpkey.h).

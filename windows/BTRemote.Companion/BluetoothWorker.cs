@@ -20,6 +20,7 @@ internal sealed class BluetoothWorker : ApplicationContext
     private readonly List<GattDeviceService> services = [];
     private volatile bool changed = true;
     private bool started;
+    private BluetoothControl? control;
     public int ExitCode { get; private set; }
 
     public BluetoothWorker()
@@ -49,6 +50,7 @@ internal sealed class BluetoothWorker : ApplicationContext
         var settings = JsonFiles.Read<CompanionSettings>(Paths.Settings)
             ?? throw new InvalidOperationException("No paired Mac selected.");
         settings.Validate();
+        control = new BluetoothControl(detail => Emit(status with { State = "Connected", Detail = detail }));
         var failures = 0;
         while (!stop.IsCancellationRequested)
         {
@@ -71,10 +73,11 @@ internal sealed class BluetoothWorker : ApplicationContext
                     changed = true;
                 }
 
-                if (changed || device.ConnectionStatus != BluetoothConnectionStatus.Connected)
+                if (changed || control.NeedsReconnect || device.ConnectionStatus != BluetoothConnectionStatus.Connected || !control.Attached)
                 {
                     changed = false;
                     Emit(status with { State = "Discovering", Detail = "Requesting uncached GATT services under the service account" });
+                    control.ResetLink();
                     foreach (var service in services) service.Dispose();
                     services.Clear();
                     var result = await device.GetGattServicesAsync(BluetoothCacheMode.Uncached).AsTask(stop);
@@ -95,8 +98,11 @@ internal sealed class BluetoothWorker : ApplicationContext
                         HidServiceFound = hasHid
                     });
                     if (!hasHid) throw new InvalidOperationException("Discovery succeeded but the Mac HID service was absent.");
+                    var companion = services.FirstOrDefault(service => service.Uuid == Protocol.Uuid(1));
+                    if (companion is not null) await control.Attach(companion, stop);
                     failures = 0;
                 }
+                control.Tick(device.BluetoothAddress.ToString("X12"));
                 await Task.Delay(TimeSpan.FromSeconds(3), stop);
             }
             catch (OperationCanceledException) when (stop.IsCancellationRequested) { throw; }
@@ -128,6 +134,7 @@ internal sealed class BluetoothWorker : ApplicationContext
 
     private void CloseDevice()
     {
+        control?.ResetLink();
         foreach (var service in services) service.Dispose();
         services.Clear();
         if (session is not null) { session.MaintainConnection = false; session.Dispose(); session = null; }
@@ -147,6 +154,7 @@ internal sealed class BluetoothWorker : ApplicationContext
             shutdown.Cancel();
             heartbeat.Dispose();
             CloseDevice();
+            control?.Dispose();
             output.Dispose();
             shutdown.Dispose();
         }

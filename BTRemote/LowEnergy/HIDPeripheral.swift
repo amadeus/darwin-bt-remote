@@ -17,6 +17,7 @@ final class HIDPeripheral: NSObject, ObservableObject {
     @Published private(set) var keyboardLEDs: KeyboardLEDs = []
     @Published private(set) var lastError: String?
 
+    let companion = CompanionService()
     private let batteryLevel: UInt8 = 100
 
     private var centralObjects: [UUID: CBCentral] = [:]
@@ -87,6 +88,7 @@ final class HIDPeripheral: NSObject, ObservableObject {
         isHIDServiceAdded = false
         isReadyToSendNotification = true
         pendingBroadcast = nil
+        companion.reset()
         batteryServiceObj = nil
         deviceInfoServiceObj = nil
         hidServiceObj = nil
@@ -447,7 +449,10 @@ extension HIDPeripheral: @preconcurrency CBPeripheralManagerDelegate {
             hidServiceObj = hid
             peripheral.add(hid)
         case HIDProfile.hidService:
+            guard error == nil else { return }
             isHIDServiceAdded = true
+            peripheral.add(companion.build(peripheral))
+        case CompanionService.uuid:
             startAdvertisingNow()
         default:
             break
@@ -470,6 +475,7 @@ extension HIDPeripheral: @preconcurrency CBPeripheralManagerDelegate {
         central: CBCentral,
         didSubscribeTo characteristic: CBCharacteristic
     ) {
+        if companion.owns(characteristic) { companion.subscribed(central, characteristic); return }
         _trackInteraction(from: central)
         subscribedCentrals[central.identifier, default: []].insert(characteristic.uuid)
         _trace("subscribe: \(central.identifier) -> \(characteristic.uuid)")
@@ -492,6 +498,7 @@ extension HIDPeripheral: @preconcurrency CBPeripheralManagerDelegate {
         central: CBCentral,
         didUnsubscribeFrom characteristic: CBCharacteristic
     ) {
+        if companion.owns(characteristic) { companion.unsubscribed(central); return }
         _trace("unsubscribe: \(central.identifier) <- \(characteristic.uuid)")
         guard var chars = subscribedCentrals[central.identifier] else { return }
         chars.remove(characteristic.uuid)
@@ -509,10 +516,12 @@ extension HIDPeripheral: @preconcurrency CBPeripheralManagerDelegate {
     func peripheralManagerIsReady(toUpdateSubscribers peripheral: CBPeripheralManager) {
         isReadyToSendNotification = true
         drainPendingBroadcast()
+        companion.readyToSend()
     }
 
     func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveRead request: CBATTRequest) {
         _trace("read: \(request.central.identifier) -> \(request.characteristic.uuid)")
+        if companion.owns(request.characteristic) { companion.respond(to: request, using: peripheral); return }
         _trackInteraction(from: request.central)
         scheduleServiceChanged()
         let value = readValue(forRequest: request)
@@ -549,6 +558,15 @@ extension HIDPeripheral: @preconcurrency CBPeripheralManagerDelegate {
     }
 
     func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
+        if let first = requests.first, companion.owns(first.characteristic) {
+            var result = CBATTError.Code.success
+            for request in requests {
+                result = companion.receive(request)
+                if result != .success { break }
+            }
+            peripheral.respond(to: first, withResult: result)
+            return
+        }
         for request in requests {
             _trace("write: \(request.central.identifier) -> \(request.characteristic.uuid)")
             _trackInteraction(from: request.central)

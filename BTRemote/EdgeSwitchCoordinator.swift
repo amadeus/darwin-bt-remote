@@ -24,6 +24,13 @@ final class EdgeSwitchCoordinator: ObservableObject {
     private var currentTarget: UUID?
     private var captureTarget: UUID?
     private var restoringPreferences = true
+    private var switchID: UInt8 = 0
+    private var companionCapture = false
+    @Published private(set) var pcMonitors: [PCMonitor] = []
+    @Published private(set) var companionStatus = "Waiting for Windows companion"
+    @Published var pcMonitorID = "" {
+        didSet { _save() }
+    }
 
     @Published private(set) var isRemote = false
     @Published private(set) var targetAvailable = false
@@ -78,11 +85,16 @@ final class EdgeSwitchCoordinator: ObservableObject {
                 .object(forKey: AppSettings.toggleModifiersKey) as? Int ?? Int(CGEventFlags.maskSecondaryFn.rawValue)),
             enabled: defaults.object(forKey: AppSettings.toggleHotkeyEnabledKey) as? Bool ?? true
         )
+        pcMonitorID = defaults.string(forKey: "pcMonitorID") ?? ""
         restoringPreferences = false
     }
 
     func start() {
         guard timer == nil else { return }
+        lowEnergy.companion.onReady = { [weak self] _ in self?._configureCompanion() }
+        lowEnergy.companion.onLeave = { [weak self] target, switchID, edge, fraction in
+            self?._returnFromPC(target: target, switchID: switchID, edge: edge, fraction: fraction)
+        }
         _refreshDisplays()
         lowEnergy.start()
         central.start()
@@ -125,8 +137,16 @@ final class EdgeSwitchCoordinator: ObservableObject {
     }
 
     func returnLocal() {
+        _returnLocal(at: nil)
+    }
+
+    private func _returnLocal(at point: CGPoint?) {
+        if isRemote, let target = captureTarget {
+            lowEnergy.companion.send(.exit, payload: Data([switchID]), to: target)
+        }
+        companionCapture = false
         tap.forceLocal()
-        cursor.restore()
+        cursor.restore(at: point)
         directInput.stop()
         isRemote = false
         captureTarget = nil
@@ -175,6 +195,7 @@ final class EdgeSwitchCoordinator: ObservableObject {
         }.map(\.key)
         currentTarget = candidates.count == 1 && lowEnergy.state == .poweredOn ? candidates.first : nil
         targetAvailable = currentTarget != nil
+        _refreshCompanion()
         if isRemote, !permissionGranted || secureInput || captureTarget != currentTarget || geometry == nil { returnLocal() }
         if permissionGranted, !tapReady, !tapStarting {
             tapStarting = true
@@ -197,6 +218,8 @@ final class EdgeSwitchCoordinator: ObservableObject {
         guard !restoringPreferences else { return }
         if isRemote { returnLocal() }
         let defaults = UserDefaults.standard
+        defaults.set(pcMonitorID, forKey: "pcMonitorID")
+        _configureCompanion()
         defaults.set(edgeEnabled, forKey: AppSettings.edgeSwitchEnabledKey)
         defaults.set(displayID, forKey: AppSettings.edgeDisplayUUIDKey)
         defaults.set(edge.rawValue, forKey: AppSettings.edgeSideKey)
@@ -206,6 +229,38 @@ final class EdgeSwitchCoordinator: ObservableObject {
         defaults.set(Int(shortcut.modifiers), forKey: AppSettings.toggleModifiersKey)
         defaults.set(shortcut.enabled, forKey: AppSettings.toggleHotkeyEnabledKey)
         _configure()
+    }
+
+    private func _refreshCompanion() {
+        let companion = lowEnergy.companion
+        let fresh = currentTarget.flatMap { companion.lastSeen[$0] }.map {
+            ProcessInfo.processInfo.systemUptime - $0 < 10
+        } ?? false
+        let monitors = currentTarget.flatMap { companion.monitors[$0] } ?? []
+        if monitors != pcMonitors { pcMonitors = monitors; _configureCompanion() }
+        let ready = currentTarget.map { companion.ready.contains($0) } ?? false
+        let blind = currentTarget.flatMap { companion.blind[$0] } ?? 4
+        companionStatus = ready && fresh ? (blind == 0 ? "Windows edge return ready" :
+            "Windows edge return unavailable — use the hotkey") : "Waiting for Windows companion"
+        if isRemote, companionCapture, !ready || !fresh { returnLocal() }
+    }
+
+    private func _configureCompanion() {
+        guard let target = currentTarget else { return }
+        let monitors = lowEnergy.companion.monitors[target] ?? []
+        guard let monitor = monitors.first(where: { $0.id == pcMonitorID }) ??
+            (pcMonitorID.isEmpty ? monitors.first(where: \.primary) ?? monitors.first : nil) else { return }
+        lowEnergy.companion.sendJSON(
+            PCConfiguration(edge: edge.opposite.wireValue, monitor: monitor.id),
+            type: .config,
+            to: target
+        )
+    }
+
+    private func _returnFromPC(target: UUID, switchID: UInt8, edge: UInt8, fraction: UInt16) {
+        guard isRemote, !locked, !recordingShortcut, target == captureTarget, switchID == self.switchID,
+              edge == self.edge.opposite.wireValue, let geometry, tap.acceptCompanionReturn() else { return }
+        _returnLocal(at: geometry.entryPoint(fraction: fraction))
     }
 
     private func _receive(_ event: TapOutput) {
@@ -227,6 +282,17 @@ final class EdgeSwitchCoordinator: ObservableObject {
             captureTarget = currentTarget
             directInput.start(HIDInput.make(lowEnergy: lowEnergy, central: central))
             isRemote = true
+            switchID &+= 1
+            companionCapture = currentTarget.map { lowEnergy.companion.ready.contains($0) } ?? false
+            if let target = currentTarget {
+                let fraction = geometry.fraction(at: origin)
+                lowEnergy.companion.send(.enter, payload: Data([
+                    switchID,
+                    edge.opposite.wireValue,
+                    UInt8(truncatingIfNeeded: fraction),
+                    UInt8(fraction >> 8)
+                ]), to: target)
+            }
         case let .input(generation, input):
             guard tap.isCurrent(generation), isRemote else { return }
             directInput.handle(input)

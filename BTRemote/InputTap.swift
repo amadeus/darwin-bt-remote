@@ -75,6 +75,18 @@ final class InputTap: @unchecked Sendable {
         lock.withLock { handoff.requestToggle() }
     }
 
+    func acceptCompanionReturn() -> Bool {
+        lock.withLock {
+            guard remote, handoff.isReleased else { return false }
+            remote = false
+            generation += 1
+            handoff.cancel()
+            edgeSince = nil
+            dropNextMotion = true
+            return true
+        }
+    }
+
     func forceLocal() {
         lock.withLock {
             remote = false

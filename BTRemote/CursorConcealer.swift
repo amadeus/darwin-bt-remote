@@ -53,14 +53,14 @@ final class CursorConcealer {
         return true
     }
 
-    func restore() {
+    func restore(at point: CGPoint? = nil) {
         guard origin != nil || panel != nil || hidden else { return }
         CGAssociateMouseAndMouseCursorPosition(1)
         if hidden {
             CGDisplayShowCursor(CGMainDisplayID())
             hidden = false
         }
-        if let origin { CGWarpMouseCursorPosition(origin) }
+        if let position = point ?? origin { CGWarpMouseCursorPosition(position) }
         panel?.orderOut(nil)
         panel = nil
         parkingPoint = nil

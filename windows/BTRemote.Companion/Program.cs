@@ -23,6 +23,14 @@ internal static class Program
             return worker.ExitCode;
         }
 
+        if (args is ["--desktop-worker", var pipe, var parent, var address] && int.TryParse(parent, out var pid) &&
+            address.Length == 12 && address.All(Uri.IsHexDigit))
+        {
+            using var worker = new DesktopWorker(pipe, pid, address);
+            Application.Run(worker);
+            return 0;
+        }
+
         try
         {
             if (args.Length > 0) return ServiceCommands.Execute(args);

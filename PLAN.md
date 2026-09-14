@@ -442,6 +442,11 @@ the configured span onto the arriving edge, inset 1–3 px.
 
 ### 3.3 Wire protocol (BLE-first; the same messages ride TCP later with a length prefix)
 
+**Current M3 control-channel scope.** Use 20-byte chunks throughout this first
+edge-return build. Malformed/sequence-gap/CRC failures reset the companion link
+and require a new HELLO; NACK/replay and larger negotiated chunks are deferred
+until bulk clipboard traffic. No corrupted or incomplete message is acted on.
+
 **Source of truth.** `BTRemote/Companion/CompanionProtocol.swift` (pure Swift,
 no AppKit, unit-tested) defines every constant, enum and encoder below.
 `windows/BTRemote.Companion.Core/Protocol.cs` mirrors it by hand. Both test
@@ -493,6 +498,7 @@ After HELLO each side uses `min(own chunk, peer chunk)`.
 | `0x11` | ENTER       | Mac→PC    | `switchId u8, edge u8, frac u16`                                                         |
 | `0x12` | ENTER_ACK   | PC→Mac    | `switchId u8, ok u8, x i16, y i16, blind u8` (x,y = physical px where the cursor landed) |
 | `0x13` | LEAVE       | PC→Mac    | `switchId u8, edge u8, frac u16` (id of the ENTER being returned from)                   |
+| `0x15` | EXIT        | Mac→PC    | `switchId u8`; cancel the current PC edge detector after any Mac-local return             |
 | `0x14` | STATE       | PC→Mac    | `blind u8, desktop u8, macMousePresent u8` every 3 s                                     |
 | `0x20` | CLIP_GRAB   | both      | `seq u32, formats u16, bytes u32` (announce: my clipboard changed)                       |
 | `0x21` | CLIP_GET    | both      | `seq u32, formats u16` (send me that clipboard in these formats)                         |
@@ -505,7 +511,7 @@ After HELLO each side uses `min(own chunk, peer chunk)`.
 | Field     | Values                                                                                                                                                              |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `edge`    | `0` left, `1` right, `2` top, `3` bottom. v1 has exactly one link, so the edge identifies the side; the monitor comes from CONFIG.                                  |
-| `frac`    | `0…65535` = position along the edge as a fraction: from the top for left/right edges, from the left for top/bottom. `round((pos − start + 0.5) / length × 65535)`.  |
+| `frac`    | `0…65535` = position along the edge as a fraction: from the top for left/right edges, from the left for top/bottom. `round((pos − start) / (length − 1) × 65535)`.  |
 | `ok`      | `0` failed (cursor not moved), `1` placed                                                                                                                           |
 | `blind`   | `0` none, `1` secure desktop (UAC / lock / Ctrl+Alt+Del), `2` elevated window in foreground, `3` Mac mouse not present in Raw Input, `4` input desktop inaccessible |
 | `desktop` | `0` Default, `1` Winlogon, `2` other                                                                                                                                |
@@ -1022,3 +1028,36 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   Windows UI showed Service Running, Bluetooth Discovered, and successful
   uncached discovery with BLE Connected. Signed-out recovery and boot before
   first login remain unverified; they are the next manual checks.
+
+- User steering: defer signed-out/pre-login testing and proceed with signed-in
+  Windows edge return and matching cursor placement now. Keep those service
+  lifecycle checks pending; they no longer block the signed-in M3 work. The
+  first desktop worker uses the logged-in console user's token and Default
+  desktop; Winlogon access remains a later verification/implementation step.
+
+- M3 signed-in edge implementation: encrypted custom GATT control/meta service,
+  conservative 20-byte framing with CRC32C and per-stream sequence validation,
+  HELLO/heartbeat, display/config exchange, ENTER placement, ENTER_ACK, LEAVE,
+  and EXIT cancellation. Failed framing resets the link and starts a new HELLO.
+  Native HID report translation and queues are unchanged.
+- The service-owned STA Bluetooth worker coordinates an automatically launched
+  console-user desktop worker. An ACL-restricted, process-identity-checked
+  named pipe carries bounded messages; Windows jobs tie both worker lifetimes
+  to the service. The tray remains optional. No Windows login credentials are
+  stored, and the desktop worker runs at the logged-in user's privilege level.
+- Desktop worker uses PerMonitorV2 physical coordinates, SetCursorPos, Raw Input
+  filtered through HID PnP ancestry to the selected Mac's Bluetooth address,
+  exposed-edge detection, a 12-count outward push, and mouse-button/confinement
+  guards. The Mac accepts matching LEAVE only while physical keys/buttons are
+  released and restores its pointer two pixels inside the mapped edge.
+  Handoff IDs and EXIT prevent late messages after a hotkey return; desktop or
+  display changes disarm the active Windows handoff. PC monitor selection and
+  companion readiness are shown in Layout; readiness is also in the Mac menu.
+- Local verification: 21 Swift tests and 28 .NET core tests pass, including
+  shared protocol fixtures, CRC/sequence failure, fragment boundaries, screen
+  coordinates and stale handoffs. Both apps compile; strict Swift lint passes.
+  Actual custom GATT coexistence, desktop launch, Mac mouse identification and
+  pinned-edge return remain the next Windows manual checkpoint in windows/README.md.
+  Clipboard, Winlogon/elevated-desktop support and signed-out/pre-login testing
+  remain pending. This is an implementation checkpoint, not a claim of those
+  native runtime checks having passed.

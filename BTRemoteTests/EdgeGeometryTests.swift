@@ -2,6 +2,25 @@ import CoreGraphics
 import XCTest
 
 final class EdgeGeometryTests: XCTestCase {
+    func testReturnMapsFractionOnAllEdgesWithNegativeCoordinates() {
+        let bounds = CGRect(x: -1920, y: -200, width: 1920, height: 1080)
+        let points = [
+            CGPoint(x: -1918, y: 339.5082322423),
+            CGPoint(x: -3, y: 339.5082322423),
+            CGPoint(x: -960.4853589685, y: -198),
+            CGPoint(x: -960.4853589685, y: 877)
+        ]
+        for (index, edge) in DisplayEdge.allCases.enumerated() {
+            let geometry = EdgeGeometry(bounds: bounds, edge: edge, otherDisplays: [])
+            let point = geometry.entryPoint(fraction: 32768)
+            XCTAssertEqual(point.x, points[index].x, accuracy: 0.01)
+            XCTAssertEqual(point.y, points[index].y, accuracy: 0.01)
+            XCTAssertEqual(geometry.fraction(at: point), 32768)
+            XCTAssertEqual(edge.opposite.opposite, edge)
+            XCTAssertFalse(geometry.isAtEdge(point))
+        }
+    }
+
     func testSharedEdgeOnlyArmsOnExposedSegment() {
         let geometry = EdgeGeometry(
             bounds: CGRect(x: 0, y: 0, width: 1920, height: 1080), edge: .right,

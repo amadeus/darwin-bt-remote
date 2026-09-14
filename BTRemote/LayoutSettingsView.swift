@@ -38,6 +38,18 @@ struct LayoutSettingsView: View {
                 }
                 Toggle(L10n.Layout.lock, isOn: $coordinator.locked)
             }
+            Section("Windows") {
+                Text(verbatim: coordinator.companionStatus).foregroundStyle(.secondary)
+                if !coordinator.pcMonitors.isEmpty {
+                    Picker("Display", selection: $coordinator.pcMonitorID) {
+                        Text("Primary display").tag("")
+                        ForEach(coordinator.pcMonitors) { monitor in
+                            Text(verbatim: "\(monitor.id) (\(monitor.w) × \(monitor.h))").tag(monitor.id)
+                        }
+                    }
+                    Text("Return through the opposite edge of this display.").font(.caption).foregroundStyle(.secondary)
+                }
+            }
             Section(L10n.Layout.hotkeySection) {
                 Toggle(L10n.Layout.hotkeyEnabled, isOn: $coordinator.shortcut.enabled)
                 HStack {

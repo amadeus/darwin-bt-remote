@@ -53,6 +53,7 @@ targets:
       - BTRemote/DirectInputEvent.swift
       - BTRemote/EdgeGeometry.swift
       - BTRemote/HandoffState.swift
+      - BTRemote/Companion/CompanionProtocol.swift
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
