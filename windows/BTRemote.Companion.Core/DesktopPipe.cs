@@ -4,6 +4,7 @@ namespace BTRemote.Companion.Core;
 
 public static class DesktopPipe
 {
+    public const int MaximumMessageBytes = 131072; // 64 KiB clipboard as base64 plus metadata.
     public static async Task Pump(Stream pipe, System.Threading.Channels.ChannelReader<DesktopMessage> outgoing,
         Action<DesktopMessage> dispatch, CancellationToken stop)
     {
@@ -40,7 +41,7 @@ public static class DesktopPipe
         var header = new byte[4];
         await pipe.ReadExactlyAsync(header, stop);
         var size = System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(header);
-        if (size is < 1 or > 16384) throw new InvalidDataException("Invalid desktop message size");
+        if (size is < 1 or > MaximumMessageBytes) throw new InvalidDataException("Invalid desktop message size");
         var data = new byte[size];
         await pipe.ReadExactlyAsync(data, stop);
         return JsonSerializer.Deserialize<DesktopMessage>(data) ?? throw new InvalidDataException("Empty desktop message");
@@ -48,7 +49,7 @@ public static class DesktopPipe
     public static async Task Write(Stream pipe, DesktopMessage message, CancellationToken stop)
     {
         var data = JsonSerializer.SerializeToUtf8Bytes(message);
-        if (data.Length > 16384) throw new InvalidDataException("Desktop message too large");
+        if (data.Length > MaximumMessageBytes) throw new InvalidDataException("Desktop message too large");
         var header = new byte[4];
         System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(header, data.Length);
         await pipe.WriteAsync(header, stop);

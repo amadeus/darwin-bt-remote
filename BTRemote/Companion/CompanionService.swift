@@ -10,6 +10,8 @@ final class CompanionService: ObservableObject {
     @Published private(set) var blind: [UUID: UInt8] = [:]
     private(set) var lastSeen: [UUID: TimeInterval] = [:]
     var onLeave: ((UUID, UInt8, UInt8, UInt16) -> Void)?
+    var clipboardTarget: (() -> UUID?)?
+    var onClipboard: ((UUID, CompanionProtocol.Message, Data) throws -> Void)?
     var onReady: ((UUID) -> Void)?
     private var manager: CBPeripheralManager?
     private var clients: [UUID: Client] = [:]
@@ -32,6 +34,7 @@ final class CompanionService: ObservableObject {
         var bulkDecoder = CompanionProtocol.Decoder()
         var helloSent = false
         var supportsResume = false
+        var supportsClipboard = false
     }
 
     private struct Queued { let data: Data; let index: Int; let central: CBCentral }
@@ -75,7 +78,7 @@ final class CompanionService: ObservableObject {
         client.helloSent = client.helloSent || sendHello
         clients[central.identifier] = client
         if sendHello {
-            sendJSON(CompanionHello(v: 1, role: "mac", name: "BTRemote", chunk: 20), type: .hello, to: central.identifier)
+            sendJSON(CompanionHello(v: 1, role: "mac", name: "BTRemote", chunk: 20, clipboard: 1), type: .hello, to: central.identifier)
         }
     }
 
@@ -119,18 +122,15 @@ final class CompanionService: ObservableObject {
     private func handle(_ packet: CompanionProtocol.Packet, from id: UUID) throws {
         guard let type = CompanionProtocol.Message(rawValue: packet.type) else { throw CompanionProtocol.Failure.malformed }
         if type == .hello {
-            let hello = try JSONDecoder().decode(CompanionHello.self, from: packet.payload)
-            guard hello.v == 1, hello.role == "pc", hello.chunk >= 20,
-                  clients[id]?.helloSent == true else { throw CompanionProtocol.Failure.malformed }
-            clients[id]?.supportsResume = hello.resume == true
-            ready.insert(id)
-            lastSeen[id] = ProcessInfo.processInfo.systemUptime
-            onReady?(id)
-            log.info("Windows companion handshake complete")
+            try receiveHello(packet.payload, from: id)
             return
         }
         guard ready.contains(id) else { throw CompanionProtocol.Failure.malformed }
         lastSeen[id] = ProcessInfo.processInfo.systemUptime
+        if [.clipGrab, .clipGet, .clipData, .clipState].contains(type) {
+            try receiveClipboard(packet, type: type, from: id)
+            return
+        }
         switch type {
         case .screens:
             try receiveScreens(packet.payload, from: id)
@@ -152,6 +152,26 @@ final class CompanionService: ObservableObject {
         }
     }
 
+    private func receiveClipboard(_ packet: CompanionProtocol.Packet, type: CompanionProtocol.Message, from id: UUID) throws {
+        guard clipboardTarget?() == id else { return }
+        guard supportsClipboard(id), packet.stream == (type == .clipData ? 1 : 0) else {
+            throw CompanionProtocol.Failure.malformed
+        }
+        try onClipboard?(id, type, packet.payload)
+    }
+
+    private func receiveHello(_ data: Data, from id: UUID) throws {
+        let hello = try JSONDecoder().decode(CompanionHello.self, from: data)
+        guard hello.v == 1, hello.role == "pc", hello.chunk >= 20,
+              clients[id]?.helloSent == true else { throw CompanionProtocol.Failure.malformed }
+        clients[id]?.supportsResume = hello.resume == true
+        clients[id]?.supportsClipboard = hello.clipboard == 1
+        ready.insert(id)
+        lastSeen[id] = ProcessInfo.processInfo.systemUptime
+        onReady?(id)
+        log.info("Windows companion handshake complete")
+    }
+
     private func receiveScreens(_ data: Data, from id: UUID) throws {
         let screens = try JSONDecoder().decode(PCScreenInfo.self, from: data).monitors
         guard screens.count <= 32, screens.allSatisfy({ $0.w > 4 && $0.h > 4 && $0.w <= 32768 && $0.h <= 32768 }),
@@ -162,6 +182,19 @@ final class CompanionService: ObservableObject {
 
     func supportsResume(_ id: UUID) -> Bool {
         ready.contains(id) && clients[id]?.supportsResume == true
+    }
+
+    func supportsClipboard(_ id: UUID) -> Bool {
+        ready.contains(id) && clients[id]?.supportsClipboard == true
+    }
+
+    func sendClipboard(_ type: CompanionProtocol.Message, payload: Data, to id: UUID) {
+        guard clipboardTarget?() == id, supportsClipboard(id), payload.count <= ClipboardTransfer.blockBytes + 12 else { return }
+        if type == .clipData {
+            enqueue(type, stream: 1, payload: payload, to: id)
+        } else {
+            send(type, payload: payload, to: id)
+        }
     }
 
     func sendJSON(_ value: some Encodable, type: CompanionProtocol.Message, to id: UUID) {

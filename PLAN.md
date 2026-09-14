@@ -269,10 +269,10 @@ parking point = center of the configured display. Keep them in
   from `peripheralManagerIsReady`. Test simultaneous HID and companion traffic
   at M3/M4. A HID queue rewrite or movement-merging policy is not part of M2;
   change the existing send path only if a reproduced issue requires it.
-- `ClipboardWatcher`: polls `NSPasteboard.general.changeCount` (0.5 s while
-  remote is active, 1–2 s otherwise), records its own writes' changeCount for
-  echo suppression, skips `org.nspasteboard.TransientType` / `ConcealedType`
-  items.
+- `ClipboardPasteboard`: polls `NSPasteboard.general.changeCount` every 200 ms
+  on a dedicated queue while sharing is available. Records imported revisions
+  for echo suppression and skips private/generated/file clipboard markers.
+  `MacClipboardSync` owns availability, handoff and transfer coordination.
 - App shell: a status-bar agent with no Dock icon. `LSUIElement = true` in
   `Info.plist` (never `LSBackgroundOnly`, which breaks active event taps on
   macOS 15+), a `MenuBarExtra` whose icon shows local/remote/blind and whose
@@ -504,9 +504,10 @@ After HELLO each side uses `min(own chunk, peer chunk)`.
 | `0x15` | EXIT        | Mac→PC    | `switchId u8`; cancel the current PC edge detector after any Mac-local return             |
 | `0x16` | RESUME      | Mac→PC    | `switchId u8, edge u8`; restore current ownership without cursor placement; capability-gated |
 | `0x14` | STATE       | PC→Mac    | `blind u8, desktop u8, macMousePresent u8` every 3 s                                     |
-| `0x20` | CLIP_GRAB   | both      | `seq u32, formats u16, bytes u32` (announce: my clipboard changed)                       |
-| `0x21` | CLIP_GET    | both      | `seq u32, formats u16` (send me that clipboard in these formats)                         |
-| `0x22` | CLIP_DATA   | both      | clip stream: `seq u32, format u16` then raw bytes                                        |
+| `0x20` | CLIP_GRAB   | both      | `epoch u32, seq u32, bytes u32`; 0xffffffff withdraws an offer                       |
+| `0x21` | CLIP_GET    | both      | `epoch u32, seq u32, offset u32`; request one 1024-byte block                         |
+| `0x22` | CLIP_DATA   | both      | bulk stream: `epoch u32, seq u32, offset u32` then 0–1024 UTF-8 bytes                                        |
+| `0x23` | CLIP_STATE  | both      | `epoch u32, enabled u8`; PC offers availability, Mac acknowledges its preference |
 | `0x7E` | ACK         | both      | `stream u8, seq u8` (only in reply to ACK_REQ; unused in v1)                             |
 | `0x7F` | NACK        | both      | `stream u8, expectedSeq u8` (drop partial, resend from FIRST)                            |
 
@@ -531,10 +532,10 @@ actually unavailable. Validate these semantics in the M3 desktop-transition spik
 **JSON shapes** (meta stream; unknown keys ignored, missing keys take the default shown).
 
 ```json
-HELLO        {"v":1,"role":"mac"|"pc","name":"Mac Studio","chunk":244}
+HELLO        {"v":1,"role":"mac"|"pc","name":"Mac Studio","chunk":20,"clipboard":1}
 SCREEN_INFO  {"monitors":[{"id":"\\\\.\\DISPLAY1","x":0,"y":0,"w":2560,"h":1440,"dpi":96,"primary":true}]}
 CONFIG       {"edge":1,"monitor":"\\\\.\\DISPLAY1","span":[0.0,1.0],"pushCounts":0,
-              "switchDelayMs":0,"doubleTapMs":0,"cornerPx":0,"clipboard":true,"heartbeatS":3}
+              "switchDelayMs":0,"doubleTapMs":0,"cornerPx":0,"heartbeatS":3}
 ```
 
 - Each side sends HELLO once after the PC subscribes to `ctrl` and `bulk`;
@@ -579,7 +580,24 @@ today.
 - v1: UTF-8 text only, LF on the wire, cap 64 KiB over BLE. Grab → `CLIP_GRAB`
   marks the other side dirty; data moves on the next switch, or immediately if
   the other side is currently active. Sequence numbers drop stale data. Echo
-  suppression on both sides.
+  suppression on both sides. Capability `clipboard:1` in HELLO is required;
+  older companions keep working without clipboard. CLIP_STATE, not CONFIG,
+  controls availability and the Mac sharing preference (default on).
+- Windows owns a session epoch. Lock, logout, desktop-worker/link changes and
+  disabling sharing discard pending text; old-epoch packets cannot apply.
+  Only the selected allowed PC participates. The logged-in desktop worker reads
+  and writes text on its own STA; Session 0 and secure desktops never read it.
+  Mac access runs off the input/main queue and pauses on sleep/session loss or
+  secure input. No clipboard contents are logged or persisted by BTRemote.
+- Send one requested 1 KiB block at a time on the existing bulk stream, keeping
+  control messages ahead of bulk and leaving the HID input path unchanged.
+  Empty text is valid; malformed UTF-8, NUL and oversized items are rejected.
+  Windows converts LF to CRLF on import. New local copies cancel older imports.
+  Initial snapshots stay silent until handoff; imported items are never reoffered.
+- Skip known concealed/transient/generated and Windows privacy markers before
+  reading text. Unmarked text cannot be identified as a password. Unsupported
+  items withdraw the offer without replacing the destination clipboard.
+  See [clipboard implementation and checkpoint](docs/CLIPBOARD.md).
 - v2: hybrid transport. Mac sends `LAN_OFFER{addrs, port, secret, certSha256}`
   over BLE; Mac only _listens_ (`NWListener`, add
   `com.apple.security.network.server`; no Bonjour so no Local Network prompt on
@@ -820,7 +838,8 @@ M3), and the way back is the toggle hotkey or an automatic release. Rule 8 in
 - Exit: copy on either machine, paste on the other, no ping-pong loops, secrets
   from password managers not synced.
 - **Manual checkpoint M4:** copy/paste text both ways, including a 20 KB block;
-  copy from a password manager and confirm it does not cross.
+  copy marked private text and confirm it does not cross. Test real password
+  manager behavior using a disposable test value, since markers vary by app.
 
 ### M5 — Feel and polish
 
@@ -1371,3 +1390,23 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   on the same live tray process. Local harness checks cover delayed transitions,
   early tray exit and missing/refusing-to-close windows; full Windows CI remains
   the required validation of native window behavior.
+
+
+### M4 implementation — 2026-09-14
+
+- Plain-text clipboard sharing is implemented on Mac and Windows, including
+  the service/desktop-worker bridge, selected-device gating, availability
+  handshake, bounded block transfers, privacy markers and loop prevention.
+- Settings has a single sharing toggle controlling both directions. No Windows
+  tray process is required for sync, and no HID descriptor or pairing changes
+  are involved. The tray EXE installs/updates the matching service and worker.
+- Automated coverage exercises Unicode/newline/empty text, 20 KB and 64 KiB
+  copies, interrupted transfers, stale epochs, local-copy races, duplicate
+  announcements, privacy policy, revision tracking and shared wire fixtures.
+- Per the overnight work boundary, neither application was launched/restarted,
+  no computer-use tools were used and the system clipboard was not accessed.
+  The M4 manual checkpoint remains pending for the user's morning test.
+- Validation: signed Mac build and 62 Swift tests pass; Windows solution builds
+  with zero warnings/errors and 64 core tests pass. SwiftFormat and strict
+  SwiftLint pass. The self-contained win-x64 ZIP is published and verified.
+  Native clipboard behavior and hardware transfer timing remain untested.

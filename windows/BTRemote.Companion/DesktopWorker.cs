@@ -14,6 +14,7 @@ internal sealed class DesktopWorker : ApplicationContext
     private readonly Channel<DesktopMessage> output = Channel.CreateBounded<DesktopMessage>(32);
     private readonly System.Windows.Forms.Timer timer = new() { Interval = 1000 };
     private readonly RawWindow window;
+    private DesktopClipboard? clipboard;
     private readonly InactiveCursor cursor = new();
     private readonly string address;
     private readonly int parent;
@@ -58,6 +59,7 @@ internal sealed class DesktopWorker : ApplicationContext
                 new() { Page = 1, Usage = 2, Flags = 0x2100, Target = window.Handle }
             ], 1, (uint)Marshal.SizeOf<DesktopNative.RawDevice>()))
                 throw new Win32Exception(Marshal.GetLastWin32Error());
+            clipboard = new DesktopClipboard(Send);
             Refresh();
             timer.Start();
             // Pipe EOF must terminate this process independently of the desktop
@@ -120,6 +122,7 @@ internal sealed class DesktopWorker : ApplicationContext
 
     private void Handle(DesktopMessage message)
     {
+        if (message.Kind.StartsWith("clipboard-", StringComparison.Ordinal)) { clipboard?.Post(message); return; }
         switch (message.Kind)
         {
             case "config":
@@ -216,6 +219,7 @@ internal sealed class DesktopWorker : ApplicationContext
         if (disposing)
         {
             Application.Idle -= Start;
+            clipboard?.Dispose();
             cursor.Dispose();
             shutdown.Cancel(); timer.Dispose(); pipe.Dispose(); window.DestroyHandle(); shutdown.Dispose();
         }

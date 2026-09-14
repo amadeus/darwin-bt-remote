@@ -1,10 +1,13 @@
-# Windows companion: edge-return checkpoint
+# Windows companion
 
-This M3 build adds signed-in Windows edge return and proportional cursor
-placement to the existing service reconnect support. The service owns the BLE
-control channel and launches a worker in the active console user's desktop.
-The optional tray configures the service; closing it does not stop switching.
-Clipboard sync and Winlogon desktop switching are still pending.
+The service owns Bluetooth recovery, switching and plain-text clipboard
+coordination. It launches the desktop worker; the optional tray configures the
+service. Closing the tray leaves switching and clipboard sharing running.
+
+This build adds **text clipboard sharing in both directions**, up to 64 KiB per
+copy. Update both the Windows companion and Mac app; keep the existing pairing.
+Clipboard sharing pauses while locked or signed out. Login control remains
+independent of the clipboard feature.
 
 ## Install and configure
 
@@ -79,11 +82,9 @@ update closes the old companion automatically. Leave the service running and tes
   the Mac hotkey if needed; returning locally that way must prevent a stale
   Windows edge event from switching again after the security screen closes.
 
-The service lifecycle remains available while signed out, but this desktop worker only
-runs under a signed-in console user's token. UAC/lock/Winlogon placement and
-edge return are not claimed by this checkpoint. The local Mac hotkey remains
-available when edge return is unavailable or an application confines the PC
-cursor.
+The clipboard worker runs only in the signed-in console user session and
+accesses the clipboard only on the Default desktop. The local Mac hotkey
+remains available when an application confines the PC cursor.
 
 ## Login handoff checkpoint
 
@@ -93,11 +94,10 @@ the login screen and sign in. Once **Layout → Windows** on the Mac reports
 handoff should continue without a hotkey round trip or another entry, and the
 cursor should stay where you left it when the desktop worker becomes ready.
 Also check that using the Mac hotkey before the worker is ready prevents a late
-return event after login. These continuation checks still need live validation.
+return event after login. Amadeus confirmed login behavior works; this checklist remains useful for regressions.
 
-Login-screen edge return itself remains pending; use **⇧⌘Escape** there. Tray
-auto-launch after login is deferred to final polish; the service and desktop
-worker operate without the tray open.
+Tray auto-launch after login is deferred to final polish; the service and
+desktop worker operate without the tray open.
 
 Use **Open diagnostics** in the tray for `status.json` and `service.log` in
 `C:\ProgramData\BTRemote`. Logs include discovery results, HRESULTs, desktop
@@ -105,6 +105,26 @@ readiness, service identity and session transitions. They do not record keys,
 mouse movement, clipboard contents or passwords. Logs rotate at 2 MiB with one
 retained file. If status remains **Waiting for the selected Mac's HID mouse**,
 report that status; do not remove the pairing as a first troubleshooting step.
+
+## Text clipboard checkpoint
+
+1. Open the EXE from the new ZIP to update Windows. Quit and reopen the newly
+   built Mac app. Keep **Settings → Share text clipboard with Windows** enabled.
+2. Copy text on the Mac, cross to Windows and paste. Copy different text on
+   Windows, return to the Mac and paste. Repeat a few times with Unicode,
+   multiple lines and a 20 KB block. Large BLE transfers can take longer.
+3. Check that edge switching and typing stay responsive during the large copy.
+   Paste again after several round trips: imported text should not bounce back
+   and replace a newer local copy.
+4. Turn sharing off in Mac Settings and confirm new copies no longer cross.
+   Turn it on, make a fresh copy and repeat. Lock/unlock and reconnect, then
+   repeat with fresh text; clipboard sharing must stay off on the login screen.
+
+Only plain text crosses; no files, images or rich formatting. Known private
+clipboard markers are respected, but unmarked password text is indistinguishable
+from ordinary text. Test privacy with disposable text, not real credentials.
+Full behavior, limits and development checks are in [docs/CLIPBOARD.md](../docs/CLIPBOARD.md).
+Native clipboard behavior and BLE transfer timing still need the manual test.
 
 ## Open or update
 

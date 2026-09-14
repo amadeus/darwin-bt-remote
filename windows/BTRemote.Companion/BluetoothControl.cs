@@ -8,7 +8,7 @@ using Windows.Storage.Streams;
 namespace BTRemote.Companion;
 
 // Runs on the service's STA BLE worker. Desktop observations are requests; the Mac remains the routing authority.
-internal sealed class BluetoothControl(Action<string> status) : IDisposable
+internal sealed partial class BluetoothControl(Action<string> status) : IDisposable
 {
     private static readonly JsonSerializerOptions Json = new()
     {
@@ -67,6 +67,8 @@ internal sealed class BluetoothControl(Action<string> status) : IDisposable
     {
         desktop ??= new DesktopHost(DesktopEvent);
         desktop.Refresh(address);
+        UpdateClipboardSession();
+        if (clipboardEnabled) Clipboard.Tick(ClipboardNow);
         if (!desktop.Connected) SetDetail(desktop.Detail);
         if (!Attached) return;
         if ((!ready && Environment.TickCount64 - connectedAt > 10000) ||
@@ -77,6 +79,7 @@ internal sealed class BluetoothControl(Action<string> status) : IDisposable
             var payload = new byte[4];
             BinaryPrimitives.WriteUInt32LittleEndian(payload, unchecked((uint)Environment.TickCount64));
             Send(Protocol.Message.Ping, payload);
+            AdvertiseClipboard();
             if (!desktop.Connected) { blind = 4; Send(Protocol.Message.State, [4, 2, 0]); SetDetail(desktop.Detail); }
         }
     }
@@ -107,14 +110,22 @@ internal sealed class BluetoothControl(Action<string> status) : IDisposable
                     hello.RootElement.GetProperty("role").GetString() != "mac" ||
                     hello.RootElement.GetProperty("chunk").GetInt32() < 20) throw new InvalidDataException("Invalid HELLO");
                 ready = true;
-                SendJson(Protocol.Message.Hello, new { v = 1, role = "pc", name = "BTRemote Companion", chunk = 20, resume = true });
+                clipboardPeer = hello.RootElement.TryGetProperty("clipboard", out var capability) &&
+                    capability.TryGetInt32(out var clipboardVersion) && clipboardVersion == 1;
+                SendJson(Protocol.Message.Hello, new { v = 1, role = "pc", name = "BTRemote Companion", chunk = 20, resume = true, clipboard = 1 });
+                UpdateClipboardSession(true);
                 if (monitors.Length > 0) SendScreens();
                 SetDetail("Companion connected; waiting for desktop status");
             }
             else
             {
                 if (!ready) throw new InvalidDataException("Expected HELLO");
-                Handle(type, packet.Payload);
+                if (type is Protocol.Message.ClipGrab or Protocol.Message.ClipGet or Protocol.Message.ClipData or Protocol.Message.ClipState)
+                {
+                    if (packet.Stream != (type == Protocol.Message.ClipData ? 1 : 0)) throw new InvalidDataException("Wrong clipboard stream");
+                    ReceiveClipboard(type, packet.Payload);
+                }
+                else Handle(type, packet.Payload);
             }
             lastSeen = Environment.TickCount64;
         }
@@ -138,6 +149,7 @@ internal sealed class BluetoothControl(Action<string> status) : IDisposable
                 break;
             case Protocol.Message.Enter when payload.Length == 4 && payload[1] < 4:
                 handoff.Enter(payload[0], payload[1]);
+                ClipboardSwitch(true);
                 if (desktop?.Connected == true && config is not null && config.Edge == payload[1])
                     desktop.Send(new DesktopMessage("enter", SwitchId: payload[0], Edge: payload[1],
                         Fraction: BinaryPrimitives.ReadUInt16LittleEndian(payload.AsSpan(2))));
@@ -145,10 +157,11 @@ internal sealed class BluetoothControl(Action<string> status) : IDisposable
                 break;
             case Protocol.Message.Resume when payload.Length == 2 && payload[1] < 4:
                 handoff.Enter(payload[0], payload[1]);
+                ClipboardSwitch(true);
                 ResumeDesktop();
                 break;
             case Protocol.Message.Exit when payload.Length == 1:
-                if (handoff.Accept(payload[0])) { handoff.Exit(); desktop?.Send(new DesktopMessage("exit", SwitchId: payload[0])); }
+                if (handoff.Accept(payload[0])) { handoff.Exit(); ClipboardSwitch(false); desktop?.Send(new DesktopMessage("exit", SwitchId: payload[0])); }
                 break;
             default: throw new InvalidDataException("Unsupported companion message");
         }
@@ -156,11 +169,13 @@ internal sealed class BluetoothControl(Action<string> status) : IDisposable
 
     private void DesktopEvent(DesktopMessage message)
     {
+        if (message.Kind.StartsWith("clipboard-", StringComparison.Ordinal)) { ClipboardDesktopEvent(message); return; }
         switch (message.Kind)
         {
             case "connected":
             case "disconnected":
                 handoff.DesktopChanged(); blind = 4;
+                clipboardDesktopAvailable = clipboardDefaultDesktop = false; UpdateClipboardSession(true);
                 if (ready) Send(Protocol.Message.State, [4, 2, 0]);
                 break;
             case "screens":
@@ -170,6 +185,7 @@ internal sealed class BluetoothControl(Action<string> status) : IDisposable
                 if (ready) SendScreens();
                 break;
             case "state":
+                clipboardDefaultDesktop = message.Desktop == 0; UpdateClipboardSession();
                 blind = message.Blind;
                 if (ready) Send(Protocol.Message.State, [blind, message.Desktop, (byte)(message.MousePresent ? 1 : 0)]);
                 SetDetail(message.Detail ?? "Desktop status received");
@@ -233,7 +249,7 @@ internal sealed class BluetoothControl(Action<string> status) : IDisposable
     }
 
     private void SetDetail(string value) { if (Detail != value) { Detail = value; status(value); } }
-    private void Fail(string reason) { NeedsReconnect = true; ready = false; handoff.Exit(); desktop?.Send(new DesktopMessage("reset")); SetDetail(reason); }
+    private void Fail(string reason) { NeedsReconnect = true; ready = false; UpdateClipboardSession(true); handoff.Exit(); desktop?.Send(new DesktopMessage("reset")); SetDetail(reason); }
     public void ResetLink()
     {
         generation++;
@@ -242,7 +258,7 @@ internal sealed class BluetoothControl(Action<string> status) : IDisposable
         controlRead = controlWrite = bulkRead = bulkWrite = null;
         controls.Clear(); bulk.Clear(); controlEncoder = new(); bulkEncoder = new(); controlDecoder = new(); bulkDecoder = new();
         ready = subscribing = NeedsReconnect = helloSent = false;
-        handoff.Reset(); desktop?.Send(new DesktopMessage("reset"));
+        handoff.Reset(); UpdateClipboardSession(true); clipboardPeer = false; desktop?.Send(new DesktopMessage("reset"));
     }
     public void Dispose() { ResetLink(); desktop?.Dispose(); desktop = null; }
 }

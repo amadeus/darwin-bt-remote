@@ -50,6 +50,7 @@ final class HIDPeripheral: NSObject, ObservableObject {
     private var cachedBootMouseReport = MouseReport.zero.bootData
 
     func start() {
+        companion.clipboardTarget = { [weak self] in self?.hostPolicy.target }
         isHIDServiceAllowed = true
         if pManager == nil {
             pManager = CBPeripheralManager(

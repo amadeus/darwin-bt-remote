@@ -23,10 +23,23 @@ public sealed class DesktopPipeTests
         Assert.Equal("exit", pendingDesktop[0].Kind);
     }
 
+    [Fact]
+    public async Task MaximumClipboardFitsInAuthenticatedDesktopMessage()
+    {
+        using var stream = new MemoryStream();
+        var payload = Enumerable.Repeat((byte)255, ClipboardTransfer.MaximumBytes).ToArray();
+        await DesktopPipe.Write(stream, new DesktopMessage("clipboard-copy", Epoch: 42, Revision: 7, Clipboard: payload), CancellationToken.None);
+        stream.Position = 0;
+        var read = await DesktopPipe.Read(stream, CancellationToken.None);
+        Assert.Equal(payload, read.Clipboard);
+        Assert.Equal(42u, read.Epoch);
+        Assert.Equal(7u, read.Revision);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
-    [InlineData(16385)]
+    [InlineData(DesktopPipe.MaximumMessageBytes + 1)]
     public async Task RejectsInvalidLengthBeforeReadingPayload(int length)
     {
         var header = new byte[4];

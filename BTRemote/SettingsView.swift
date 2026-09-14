@@ -5,6 +5,7 @@ struct SettingsView: View {
     @EnvironmentObject private var names: DeviceNameStore
     @AppStorage(AppSettings.invertVerticalScrollKey) private var invertVerticalScroll = false
     @AppStorage(AppSettings.invertHorizontalScrollKey) private var invertHorizontalScroll = false
+    @AppStorage(AppSettings.clipboardEnabledKey) private var clipboardEnabled = true
     @State private var showReset = false
     @AppStorage(AppSettings.developerModeKey) private var developerMode = false
     @AppStorage(AppSettings.useServiceChangedKey) private var forceServiceChanged = true
@@ -20,6 +21,14 @@ struct SettingsView: View {
 
     private var form: some View {
         Form {
+            Section {
+                Toggle("Share text clipboard with Windows", isOn: $clipboardEnabled)
+                    .toggleStyle(.switch)
+            } footer: {
+                Text(
+                    "Shares plain text up to 64 KiB. Skips marked private items and pauses while locked or signed out."
+                )
+            }
             Section("Windows scrolling") {
                 Toggle("Invert vertical scrolling", isOn: $invertVerticalScroll)
                     .toggleStyle(.switch)

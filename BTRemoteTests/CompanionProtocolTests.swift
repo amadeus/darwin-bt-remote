@@ -62,6 +62,13 @@ final class CompanionProtocolTests: XCTestCase {
         }
     }
 
+    func testClipboardCapabilityIsOptionalForExistingCompanions() throws {
+        let legacy = Data(#"{"v":1,"role":"pc","name":"Companion","chunk":20}"#.utf8)
+        let current = Data(#"{"v":1,"role":"pc","name":"Companion","chunk":20,"clipboard":1}"#.utf8)
+        XCTAssertNil(try JSONDecoder().decode(CompanionHello.self, from: legacy).clipboard)
+        XCTAssertEqual(try JSONDecoder().decode(CompanionHello.self, from: current).clipboard, 1)
+    }
+
     func testResumeCapabilityIsOptionalForExistingCompanions() throws {
         let legacy = Data(#"{"v":1,"role":"pc","name":"Companion","chunk":20}"#.utf8)
         let current = Data(#"{"v":1,"role":"pc","name":"Companion","chunk":20,"resume":true}"#.utf8)

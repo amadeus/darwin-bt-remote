@@ -12,6 +12,7 @@ struct EdgeDisplay: Identifiable, Equatable {
 @MainActor
 final class EdgeSwitchCoordinator: ObservableObject {
     let directInput = DirectInputController()
+    private lazy var clipboard = MacClipboardSync(service: lowEnergy.companion)
     private let lowEnergy: HIDPeripheral
     private let central: HIDCentral
     private let cursor = CursorConcealer()
@@ -93,7 +94,10 @@ final class EdgeSwitchCoordinator: ObservableObject {
             self?._returnFromPC(target: target, switchID: switchID, edge: edge, fraction: fraction)
         }
         _refreshDisplays()
-        lowEnergy.onTargetWillChange = { [weak self] in self?.returnLocal(reason: "input target changed") }
+        lowEnergy.onTargetWillChange = { [weak self] in
+            self?.returnLocal(reason: "input target changed")
+            self?.clipboard.update(target: nil, remote: false, enabled: false, available: false)
+        }
         lowEnergy.start()
         central.start()
         lowEnergy.$hostPolicy.combineLatest(lowEnergy.$state)
@@ -121,6 +125,7 @@ final class EdgeSwitchCoordinator: ObservableObject {
 
     func stop() {
         returnLocal()
+        clipboard.stop()
         timer?.invalidate()
         timer = nil
         tap.stop()
@@ -151,6 +156,7 @@ final class EdgeSwitchCoordinator: ObservableObject {
         directInput.stop()
         isRemote = false
         captureTarget = nil
+        refreshClipboard()
         if wasRemote {
             let duration = Int((ProcessInfo.processInfo.systemUptime - startedAt) * 1000)
             diagnostics.transition("return: \(reason) localRestoreMs=\(duration)")
@@ -197,6 +203,7 @@ final class EdgeSwitchCoordinator: ObservableObject {
         let available = currentTarget != nil
         if targetAvailable != available { targetAvailable = available }
         _refreshCompanion()
+        refreshClipboard()
         if isRemote, !permissionGranted || secureInput || captureTarget != currentTarget || geometry == nil {
             returnLocal(
                 reason: "capture lost: AX=\(permissionGranted) secure=\(secureInput) target=\(captureTarget == currentTarget)"
@@ -208,6 +215,15 @@ final class EdgeSwitchCoordinator: ObservableObject {
             tap.start()
         }
         _configure()
+    }
+
+    private func refreshClipboard() {
+        clipboard.update(
+            target: lowEnergy.hostPolicy.target,
+            remote: isRemote,
+            enabled: UserDefaults.standard.object(forKey: AppSettings.clipboardEnabledKey) as? Bool ?? true,
+            available: !secureInput
+        )
     }
 
     private func _configure() {
@@ -298,6 +314,7 @@ final class EdgeSwitchCoordinator: ObservableObject {
             captureTarget = currentTarget
             directInput.start(HIDInput.make(lowEnergy: lowEnergy, central: central))
             isRemote = true
+            refreshClipboard()
             let setupMs = Int((ProcessInfo.processInfo.systemUptime - startedAt) * 1000)
             diagnostics.transition("remote capture began setupMs=\(setupMs)")
             switchID &+= 1
