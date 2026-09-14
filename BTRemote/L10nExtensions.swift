@@ -61,14 +61,6 @@ extension L10n {
             "setup.device_name_limitation"
         }
 
-        static var advertisedName: LocalizedStringKey {
-            "setup.advertised_name"
-        }
-
-        static var advertisedNameHint: LocalizedStringKey {
-            "setup.advertised_name_hint"
-        }
-
         static var bluetoothOffTitle: LocalizedStringKey {
             "setup.bluetooth_off_title"
         }

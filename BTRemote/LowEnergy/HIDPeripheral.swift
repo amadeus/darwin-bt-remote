@@ -26,8 +26,6 @@ final class HIDPeripheral: NSObject, ObservableObject {
 
     var centralObjects: [UUID: CBCentral] = [:]
 
-    var advertiseLocalName: String = UserDefaults.standard.string(forKey: AppSettings.advertisedNameKey) ?? L10n.Bluetooth.advertisedName
-
     private let log = Logger(subsystem: "io.github.jqssun.btremote", category: "HIDPeripheral")
     var pManager: CBPeripheralManager?
     private var batteryServiceObj: CBMutableService?
@@ -386,7 +384,7 @@ final class HIDPeripheral: NSObject, ObservableObject {
         }
     }
 
-    private func _trace(_ message: @autoclosure () -> String) {
+    func _trace(_ message: @autoclosure () -> String) {
         guard UserDefaults.standard.bool(forKey: AppSettings.developerModeKey) else { return }
         let text = message()
         log.info("\(text, privacy: .public)")
@@ -450,7 +448,7 @@ extension HIDPeripheral: @preconcurrency CBPeripheralManagerDelegate {
             log.error("startAdvertising error: \(error.localizedDescription, privacy: .public)")
         } else {
             isAdvertising = true
-            _trace("advertising as \(advertiseLocalName)")
+            _trace("advertising started")
             reconcileAdvertising()
         }
     }

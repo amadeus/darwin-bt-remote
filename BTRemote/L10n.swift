@@ -240,10 +240,6 @@ extension L10n {
     }
 
     enum Bluetooth {
-        static var advertisedName: String {
-            String(localized: "bluetooth.advertised_name")
-        }
-
         static var serviceDescription: String {
             String(localized: "bluetooth.service_description")
         }

@@ -7,7 +7,6 @@ struct SetupView: View {
     @EnvironmentObject private var central: HIDCentral
     @EnvironmentObject private var names: DeviceNameStore
     @AppStorage(AppSettings.developerModeKey) private var developerMode = false
-    @AppStorage(AppSettings.advertisedNameKey) private var advertisedName = L10n.Bluetooth.advertisedName
     @State private var selectedInfo: DeviceEntry?
     @EnvironmentObject private var coordinator: EdgeSwitchCoordinator
 
@@ -42,7 +41,6 @@ struct SetupView: View {
 
     private var statusSection: some View {
         Section(header: Text(L10n.Section.status)) {
-            advertisedNameRow
             row(L10n.Status.bluetooth, Text(lowEnergy.state.localizedLabel))
             row(L10n.Status.advertising, Text(lowEnergy.isAdvertising ? L10n.Value.yes : L10n.Value.no))
             if developerMode {
@@ -52,34 +50,6 @@ struct SetupView: View {
                 row(L10n.Status.hostLEDs, Text(verbatim: lowEnergy.keyboardLEDs.localizedLabel))
             }
         }
-    }
-
-    private var advertisedNameRow: some View {
-        NavigationLink {
-            NameEditView(
-                title: L10n.Setup.advertisedName,
-                footer: L10n.Setup.advertisedNameHint,
-                maxLength: AppSettings.maxAdvertisedNameLength,
-                name: $advertisedName,
-                onCommit: _applyAdvertisedName
-            )
-        } label: {
-            HStack {
-                Text(L10n.Setup.advertisedName)
-                Spacer()
-                Text(verbatim: advertisedName).foregroundColor(.secondary)
-            }
-        }
-    }
-
-    private func _applyAdvertisedName() {
-        if advertisedName.isEmpty {
-            advertisedName = L10n.Bluetooth.advertisedName
-        }
-        lowEnergy.advertiseLocalName = advertisedName
-        guard lowEnergy.isAdvertising else { return }
-        lowEnergy.stop()
-        lowEnergy.start()
     }
 
     private var connectionSection: some View {

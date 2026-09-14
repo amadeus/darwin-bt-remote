@@ -1305,3 +1305,11 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   Swift lint pass. Shared wire fixtures cover RESUME; lifecycle regressions cover
   login, worker replacement, reversed control/config arrival, hotkey cancellation,
   link reset and changed edge. Live Windows sign-in continuation still needs testing.
+- User confirmed the login handoff correction works: edge return resumes after
+  signing in during the existing handoff.
+- Pairing-name experiment: removed Setup's Advertised Name editor and custom
+  name preference from advertising. Read the local Bluetooth controller name
+  for each advertising start; omit the optional name only if unavailable.
+  Signed build and strict lint pass. Running app logs confirm advertising as
+  `Amadeus’s Mac Studio`; Setup no longer exposes the old name row. Fresh
+  Windows discovery/pairing behavior remains for the user to test.

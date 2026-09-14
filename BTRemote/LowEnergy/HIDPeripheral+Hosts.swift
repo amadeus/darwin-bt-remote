@@ -1,5 +1,6 @@
 import CoreBluetooth
 import Foundation
+import IOBluetooth
 
 /// Allowed-host selection and advertising share one readiness decision.
 extension HIDPeripheral {
@@ -49,10 +50,15 @@ extension HIDPeripheral {
             if isAdvertising { isAdvertising = false }
         } else if !isAdvertising, !advertisingStarting {
             advertisingStarting = true
-            pManager.startAdvertising([
-                CBAdvertisementDataLocalNameKey: advertiseLocalName,
+            var advertisement: [String: Any] = [
                 CBAdvertisementDataServiceUUIDsKey: [HIDProfile.hidService]
-            ])
+            ]
+            // Match the system Bluetooth identity instead of advertising an app alias.
+            if let name = IOBluetoothHostController.default()?.nameAsString(), !name.isEmpty {
+                advertisement[CBAdvertisementDataLocalNameKey] = name
+                _trace("advertising with system Bluetooth name: \(name)")
+            }
+            pManager.startAdvertising(advertisement)
         }
     }
 

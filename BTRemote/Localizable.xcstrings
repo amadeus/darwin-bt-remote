@@ -100,17 +100,6 @@
         }
       }
     },
-    "bluetooth.advertised_name": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "BTRemote"
-          }
-        }
-      }
-    },
     "bluetooth.provider_name": {
       "extractionState": "manual",
       "localizations": {
@@ -866,28 +855,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Turn On Bluetooth"
-          }
-        }
-      }
-    },
-    "setup.advertised_name": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Advertised Name"
-          }
-        }
-      }
-    },
-    "setup.advertised_name_hint": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The name other devices see. For best compatibility, keep it to 8 characters or fewer."
           }
         }
       }
