@@ -836,6 +836,11 @@ M3), and the way back is the toggle hotkey or an automatic release. Rule 8 in
   in the companion → allow input on the Mac → pick edges), launch at login (`SMAppService`, opt-in), companion
   tray states, Windows tray auto-launch after user login (deferred to final
   polish; independent of boot-started service), README rewrite.
+- App naming: revisit the BTRemote name during the polish pass. No replacement
+  name has been chosen; remind the user and ask them to pick one when this item
+  is reached, before renaming. Once decided, review Mac/Windows app and tray
+  labels, icons, distribution filenames and documentation, plus migration needs
+  for installed services, startup entries, saved settings and OS permissions.
 - Explicit **Switch to PC** actions, whether invoked by hotkey or any button/
   menu action, always place the pointer at the center of the selected Windows
   display. Edge crossings continue to use proportional placement on the entering
