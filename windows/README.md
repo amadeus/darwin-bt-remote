@@ -20,9 +20,10 @@ provide control.
 
 The service runs as LocalSystem, including before login and after sign-out. Its
 BLE worker inherits that identity in Session 0 and uses a dedicated STA message
-loop for WinRT. Whether Windows allows this account to restore HID is the live
-checkpoint; it has not yet been verified on the PC. The worker is isolated so a
-stalled Bluetooth API cannot prevent Stop from shutting down the service.
+loop for WinRT. On 2026-09-13, Amadeus confirmed recovery across a Mac app
+restart using the existing pairing while Windows was signed in. Recovery while
+signed out and before the first login after boot remains unverified. The worker
+is isolated so a stalled Bluetooth API can be terminated by the service.
 
 Windows may display its normal unsigned-app reputation prompt for this personal
 build. The archive is built from this repository; no installer downloads or

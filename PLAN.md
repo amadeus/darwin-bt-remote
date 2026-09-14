@@ -1016,3 +1016,9 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   under portable PowerShell 7.6.6. Actual Windows service/WinRT/tray execution
   and Windows PowerShell 5.1 execution remain manual/Windows CI checks. The Mac
   formatter/linter pass; the running Mac app was not restarted or changed.
+- M3 live service checkpoint (2026-09-13): Amadeus installed the Windows
+  companion, selected the existing paired Mac, and confirmed that restarting
+  the Mac BTRemote app reconnects and restores control without re-pairing. The
+  Windows UI showed Service Running, Bluetooth Discovered, and successful
+  uncached discovery with BLE Connected. Signed-out recovery and boot before
+  first login remain unverified; they are the next manual checks.

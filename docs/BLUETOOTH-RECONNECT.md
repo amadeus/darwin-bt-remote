@@ -14,6 +14,17 @@ The saved pairing remains usable. Automatic reconnect/service rediscovery is
 the failing path. The exact Windows cache/driver decision remains an inference;
 the Mac log does not expose Windows' internal state.
 
+## Windows service checkpoint
+
+On 2026-09-13, Amadeus installed the first Windows companion service build
+(`faa9d9d`) and confirmed that restarting the Mac BTRemote app restored control
+using the existing pairing. The companion UI showed Service Running, Bluetooth
+Discovered, and successful uncached discovery with BLE Connected. Automatic
+recovery across a normal Mac quit/relaunch is now user-verified while Windows
+is signed in; the standalone PowerShell script is no longer needed for that
+case. Signed-out recovery, boot before first login, and sleep/radio cycles
+remain separate validation gates. See `windows/README.md` for those checks.
+
 ## Reproduction and evidence
 
 1. Pair from Windows: HID control works and Setup shows one subscribed host.
