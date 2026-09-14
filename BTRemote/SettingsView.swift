@@ -11,7 +11,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             form
-                .formStyle(.grouped)
+                .settingsFormStyle()
                 .navigationTitle(L10n.Tab.settings)
         }
     }

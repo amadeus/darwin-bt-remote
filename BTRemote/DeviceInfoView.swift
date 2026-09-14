@@ -7,7 +7,7 @@ struct DeviceInfoView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationStack { content.formStyle(.grouped) }
+        NavigationStack { content.settingsFormStyle() }
     }
 
     private var content: some View {
@@ -128,7 +128,7 @@ struct NameEditView: View {
                     .focused($focused)
             }
         }
-        .formStyle(.grouped)
+        .settingsFormStyle()
         .navigationTitle(title)
         .onAppear { focused = true }
         .onDisappear(perform: onCommit)

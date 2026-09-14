@@ -43,7 +43,7 @@ struct DeviceListView: View {
                 }
             }
         }
-        .formStyle(.grouped)
+        .settingsFormStyle()
         .navigationTitle(L10n.Section.devices)
         .toolbar { sortMenu }
         .sheet(item: $selectedInfo) { DeviceInfoView(entry: $0) }

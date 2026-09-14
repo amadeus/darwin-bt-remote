@@ -28,7 +28,7 @@ struct GuideView: View {
                 }
             }
         }
-        .formStyle(.grouped)
+        .settingsFormStyle()
         .navigationTitle(title)
     }
 

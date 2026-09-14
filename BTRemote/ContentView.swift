@@ -19,6 +19,6 @@ struct ContentView: View {
                 .tabItem { Label(L10n.Tab.settings, systemImage: "slider.horizontal.3") }
                 .tag(Tab.settings)
         }
-        .frame(minWidth: 520, idealWidth: 580, minHeight: 660, idealHeight: 800)
+        .frame(minWidth: 420, idealWidth: 480, maxWidth: 640, minHeight: 480, idealHeight: 600)
     }
 }

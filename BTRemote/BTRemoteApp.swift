@@ -25,11 +25,15 @@ struct BTRemoteApp: App {
             ContentView()
                 .modifier(AppEnvironment(lowEnergy: lowEnergy, central: central, names: deviceNames, coordinator: coordinator))
         }
+        .defaultSize(width: 480, height: 600)
+        .windowResizability(.contentSize)
         Settings {
             LayoutSettingsView()
                 .environmentObject(coordinator)
-                .frame(width: 520, height: 620)
+                .frame(minWidth: 420, idealWidth: 480, maxWidth: 640, minHeight: 480, idealHeight: 600)
         }
+        .defaultSize(width: 480, height: 600)
+        .windowResizability(.contentSize)
         MenuBarExtra {
             Text(coordinator.isRemote ? L10n.Layout.remote : L10n.Layout.local)
             Text(verbatim: coordinator.shortcutLabel)
