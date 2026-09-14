@@ -52,6 +52,20 @@ function Assert-Service {
         }
     } finally { $service.Dispose() }
 }
+function Wait-CompanionWindow {
+    param($Process, [bool] $Visible, [int] $TimeoutMilliseconds = 10000)
+    $timer = [Diagnostics.Stopwatch]::StartNew()
+    do {
+        # WaitForInputIdle can return for another thread before SettingsForm is
+        # visible. Process also caches its window handle until Refresh is called.
+        $Process.Refresh()
+        if ($Process.HasExited) { throw 'The tray exited while waiting for its settings window.' }
+        $handle = $Process.MainWindowHandle
+        if (($handle -ne [IntPtr]::Zero) -eq $Visible) { return }
+        Start-Sleep -Milliseconds 50
+    } while ($timer.ElapsedMilliseconds -lt $TimeoutMilliseconds)
+    throw "Settings window did not reach visible=$Visible (PID $($Process.Id), handle $handle)."
+}
 $failure = $null
 $cleanupErrors = [Collections.Generic.List[string]]::new()
 try {
@@ -80,7 +94,7 @@ try {
     Write-Host 'Checking update with the installed tray open.'
     $tray = Start-CompanionProcess $binary
     try {
-        if (-not $tray.WaitForInputIdle(10000)) { throw 'Installed EXE did not open its UI.' }
+        Wait-CompanionWindow $tray $true
         Invoke-Companion $source @('--install')
         if (-not $tray.WaitForExit(10000)) { throw 'Update did not close the previous tray.' }
     } finally { $tray.Dispose() }
@@ -100,20 +114,16 @@ try {
     } finally { $launcher.Dispose() }
     Assert-Service 'Stopped' 'Manual'
     $tray = @(Get-Process -Name 'BTRemote.Companion' | Where-Object { $_.Path -eq $binary })
-    if ($tray.Count -ne 1 -or -not $tray[0].WaitForInputIdle(10000)) { throw 'Expected one installed UI.' }
+    if ($tray.Count -ne 1) { throw "Expected one installed tray process, found $($tray.Count)." }
     try {
+        Wait-CompanionWindow $tray[0] $true
         if (-not $tray[0].CloseMainWindow()) { throw 'Could not close settings to test reopening.' }
-        Start-Sleep -Milliseconds 500
+        Wait-CompanionWindow $tray[0] $false
         $again = Start-CompanionProcess $source
         try {
             if (-not $again.WaitForExit(15000) -or $again.ExitCode -ne 0) { throw 'Could not reopen companion.' }
         } finally { $again.Dispose() }
-        $deadline = [DateTime]::UtcNow.AddSeconds(10)
-        do {
-            Start-Sleep -Milliseconds 100
-            $tray[0].Refresh()
-        } while ($tray[0].MainWindowHandle -eq 0 -and [DateTime]::UtcNow -lt $deadline)
-        if ($tray[0].MainWindowHandle -eq 0 -or $tray[0].HasExited) { throw 'Existing tray did not reopen settings.' }
+        Wait-CompanionWindow $tray[0] $true
     } finally { $tray[0].Dispose() }
     Write-Host 'EXE installation, update, state preservation, permissions and service controls passed.'
 } catch {

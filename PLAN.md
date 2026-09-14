@@ -1363,3 +1363,11 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   failure diagnostics. Local PowerShell checks cover parsing, zero/nonzero exit
   codes, termination waiting and injected primary/cleanup failures. Full Windows
   installation/update execution remains dependent on the next CI run.
+- Subsequent Windows CI runs both reached settings reopening after passing
+  installation, service controls and updates. CloseMainWindow failed because
+  the test relied on process-idle readiness rather than refreshing/observing
+  the settings window. Replace that assumption and the fixed close sleep with
+  bounded waits for actual window appearance, disappearance and reappearance
+  on the same live tray process. Local harness checks cover delayed transitions,
+  early tray exit and missing/refusing-to-close windows; full Windows CI remains
+  the required validation of native window behavior.
