@@ -502,6 +502,7 @@ After HELLO each side uses `min(own chunk, peer chunk)`.
 | `0x12` | ENTER_ACK   | PC→Mac    | `switchId u8, ok u8, x i16, y i16, blind u8` (x,y = physical px where the cursor landed) |
 | `0x13` | LEAVE       | PC→Mac    | `switchId u8, edge u8, frac u16` (id of the ENTER being returned from)                   |
 | `0x15` | EXIT        | Mac→PC    | `switchId u8`; cancel the current PC edge detector after any Mac-local return             |
+| `0x16` | RESUME      | Mac→PC    | `switchId u8, edge u8`; restore current ownership without cursor placement; capability-gated |
 | `0x14` | STATE       | PC→Mac    | `blind u8, desktop u8, macMousePresent u8` every 3 s                                     |
 | `0x20` | CLIP_GRAB   | both      | `seq u32, formats u16, bytes u32` (announce: my clipboard changed)                       |
 | `0x21` | CLIP_GET    | both      | `seq u32, formats u16` (send me that clipboard in these formats)                         |
@@ -542,6 +543,12 @@ CONFIG       {"edge":1,"monitor":"\\\\.\\DISPLAY1","span":[0.0,1.0],"pushCounts"
   capped at 244); each side then uses `min(own, peer)`.
 - `SCREEN_INFO` is sent after HELLO and again on `WM_DISPLAYCHANGE`. `monitor`
   in CONFIG is the `id` from SCREEN_INFO (`MONITORINFOEX.szDevice`).
+- PC HELLO may advertise `"resume":true` (absent means unsupported). When a
+  companion becomes ready during an existing remote handoff, the Mac sends
+  RESUME on the control stream. Windows retains ownership across console-worker
+  startup and applies it once fresh CONFIG is available, in either arrival order.
+  EXIT and link reset cancel ownership; late CONFIG alone cannot restore it.
+  RESUME never repeats ENTER's cursor placement.
 - `span` is the fraction range of the PC edge that maps onto the Mac edge
   (Deskflow link interval); v1 UI exposes `[0,1]` only.
 - `pushCounts` and `switchDelayMs` are legacy compatibility fields sent as zero.
@@ -828,7 +835,8 @@ M3), and the way back is the toggle hotkey or an automatic release. Rule 8 in
   enter (consumer report), toggle-key (Caps/Num) sync using the LED output
   report, first-run flow (Accessibility → pair in Windows Settings → install
   companion → pick edges), launch at login (`SMAppService`, opt-in), companion
-  tray states, README rewrite.
+  tray states, Windows tray auto-launch after user login (deferred to final
+  polish; independent of boot-started service), README rewrite.
 
 ### M6 — Later
 
@@ -1274,3 +1282,26 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   deltas, live preference changes and held-button/release reports. Running Settings
   UI verified with both switches and existing compact padding. No Windows update
   or re-pairing is needed for these preferences.
+
+- Live pre-login checkpoint (2026-09-14): after rebooting Windows, Amadeus
+  crossed from the Mac and used mouse/keyboard input at the login screen to
+  sign in. Pre-login HID control on that boot is confirmed. Edge return from
+  the login screen is unavailable with the current Default-desktop worker;
+  the Mac hotkey worked. Restarting the Mac app while Windows remains signed
+  out and other session transitions still need testing. Immediately after sign-in,
+  edge return also failed; the user did not establish whether waiting helped.
+- The Windows tray utility did not auto-launch after login. Add tray auto-start
+  in final polish, per user steering; no implementation change now. The tray
+  is only the configuration UI and is independent of the Windows service.
+- User confirmed the independent Windows scroll-inversion switches work.
+- Login handoff correction: BLE control previously discarded the active switch
+  on console-worker startup and CONFIG, and a late companion HELLO never learned
+  about an existing HID-only handoff. Retain authoritative ownership across
+  worker/display changes and add capability-gated RESUME for late readiness.
+  Reattach the desktop detector after configuration without warping the pointer.
+  EXIT/link reset still cancel the handoff. Winlogon edge return remains pending;
+  this change addresses continuation on the signed-in desktop.
+- Validation: 45 Windows core tests, 49 Swift tests, signed Mac build and strict
+  Swift lint pass. Shared wire fixtures cover RESUME; lifecycle regressions cover
+  login, worker replacement, reversed control/config arrival, hotkey cancellation,
+  link reset and changed edge. Live Windows sign-in continuation still needs testing.

@@ -25,9 +25,11 @@ Clipboard sync and Winlogon desktop switching are still pending.
 The service runs as LocalSystem, including before login and after sign-out. Its
 BLE worker inherits that identity in Session 0 and uses a dedicated STA message
 loop for WinRT. On 2026-09-13, Amadeus confirmed recovery across a Mac app
-restart using the existing pairing while Windows was signed in. Recovery while
-signed out and before the first login after boot remains unverified. The worker
-is isolated so a stalled Bluetooth API can be terminated by the service.
+restart using the existing pairing while Windows was signed in. On 2026-09-14,
+he confirmed mouse/keyboard control at the login screen after a Windows reboot
+and successfully signed in. Restarting the Mac app while Windows remains signed
+out still needs testing. The worker is isolated so a stalled Bluetooth API can
+be terminated by the service.
 
 Windows may display its normal unsigned-app reputation prompt for this personal
 build. The archive is built from this repository; no installer downloads or
@@ -77,13 +79,25 @@ update closes the old companion automatically. Leave the service running and tes
   the Mac hotkey if needed; returning locally that way must prevent a stale
   Windows edge event from switching again after the security screen closes.
 
-Signed-out/pre-login testing is deferred at Amadeus's request. The service
-lifecycle remains available while signed out, but this desktop worker only
+The service lifecycle remains available while signed out, but this desktop worker only
 runs under a signed-in console user's token. UAC/lock/Winlogon placement and
 edge return are not claimed by this checkpoint. The local Mac hotkey remains
 available when edge return is unavailable or an application confines the PC
-cursor. Native Raw Input device matching and pinned-edge deltas still need
-confirmation on the actual Windows machine.
+cursor.
+
+## Login handoff checkpoint
+
+With the updated companion and Mac app, reboot Windows, cross from the Mac at
+the login screen and sign in. Once **Layout → Windows** on the Mac reports
+**Windows edge return ready**, move back through the Windows edge. The current
+handoff should continue without a hotkey round trip or another entry, and the
+cursor should stay where you left it when the desktop worker becomes ready.
+Also check that using the Mac hotkey before the worker is ready prevents a late
+return event after login. These continuation checks still need live validation.
+
+Login-screen edge return itself remains pending; use **⇧⌘Escape** there. Tray
+auto-launch after login is deferred to final polish; the service and desktop
+worker operate without the tray open.
 
 Use **Open diagnostics** in the tray for `status.json` and `service.log` in
 `C:\ProgramData\BTRemote`. Logs include discovery results, HRESULTs, desktop

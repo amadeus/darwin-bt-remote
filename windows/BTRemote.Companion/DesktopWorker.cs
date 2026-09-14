@@ -135,6 +135,16 @@ internal sealed class DesktopWorker : ApplicationContext
                     if (blind == 0) cursor.Hide();
                 }
                 break;
+            case "resume":
+                // Reattach to current Mac ownership after login/worker startup.
+                // Never replay entry placement over the user's current cursor.
+                if (config?.Edge == message.Edge && monitors.Any(item => item.Id == config.Monitor))
+                {
+                    handoff.Enter(message.SwitchId);
+                    cursor.Reveal();
+                    UpdateDesktopState(DesktopNative.DesktopState());
+                }
+                break;
             case "enter":
                 cursor.Reveal();
                 handoff.Exit();

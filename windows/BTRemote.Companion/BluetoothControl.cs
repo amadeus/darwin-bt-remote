@@ -17,13 +17,13 @@ internal sealed class BluetoothControl(Action<string> status) : IDisposable
     };
     private readonly SynchronizationContext context = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
     private readonly Queue<(GattCharacteristic Characteristic, byte[] Data, bool HelloEnd)> controls = new(), bulk = new();
-    private readonly HandoffSession handoff = new();
+    private readonly CompanionHandoff handoff = new();
     private Protocol.Encoder controlEncoder = new(), bulkEncoder = new();
     private Protocol.Decoder controlDecoder = new(), bulkDecoder = new();
     private GattCharacteristic? controlRead, controlWrite, bulkRead, bulkWrite;
     private DesktopHost? desktop;
     private MonitorInfo[] monitors = [];
-    private EdgeConfiguration? config;
+    private EdgeConfiguration? config => handoff.Configuration;
     private long lastSeen, connectedAt;
     private bool subscribing, ready, writing, helloSent;
     private int generation;
@@ -107,7 +107,7 @@ internal sealed class BluetoothControl(Action<string> status) : IDisposable
                     hello.RootElement.GetProperty("role").GetString() != "mac" ||
                     hello.RootElement.GetProperty("chunk").GetInt32() < 20) throw new InvalidDataException("Invalid HELLO");
                 ready = true;
-                SendJson(Protocol.Message.Hello, new { v = 1, role = "pc", name = "BTRemote Companion", chunk = 20 });
+                SendJson(Protocol.Message.Hello, new { v = 1, role = "pc", name = "BTRemote Companion", chunk = 20, resume = true });
                 if (monitors.Length > 0) SendScreens();
                 SetDetail("Companion connected; waiting for desktop status");
             }
@@ -132,18 +132,20 @@ internal sealed class BluetoothControl(Action<string> status) : IDisposable
                 var next = JsonSerializer.Deserialize<EdgeConfiguration>(payload, Json);
                 if (next is not { Edge: < 4 } ||
                     !monitors.Any(item => item.Id == next.Monitor)) throw new InvalidDataException("Unknown Windows display");
-                if (config != next)
-                {
-                    handoff.Exit(); config = next;
+                if (handoff.Configure(next))
                     desktop?.Send(new DesktopMessage("config", Config: config));
-                }
+                ResumeDesktop();
                 break;
             case Protocol.Message.Enter when payload.Length == 4 && payload[1] < 4:
-                handoff.Enter(payload[0]);
+                handoff.Enter(payload[0], payload[1]);
                 if (desktop?.Connected == true && config is not null && config.Edge == payload[1])
                     desktop.Send(new DesktopMessage("enter", SwitchId: payload[0], Edge: payload[1],
                         Fraction: BinaryPrimitives.ReadUInt16LittleEndian(payload.AsSpan(2))));
                 else Send(Protocol.Message.EnterAck, [payload[0], 0, 0, 0, 0, 0, 4]);
+                break;
+            case Protocol.Message.Resume when payload.Length == 2 && payload[1] < 4:
+                handoff.Enter(payload[0], payload[1]);
+                ResumeDesktop();
                 break;
             case Protocol.Message.Exit when payload.Length == 1:
                 if (handoff.Accept(payload[0])) { handoff.Exit(); desktop?.Send(new DesktopMessage("exit", SwitchId: payload[0])); }
@@ -158,13 +160,13 @@ internal sealed class BluetoothControl(Action<string> status) : IDisposable
         {
             case "connected":
             case "disconnected":
-                handoff.Exit(); config = null; blind = 4;
+                handoff.DesktopChanged(); blind = 4;
                 if (ready) Send(Protocol.Message.State, [4, 2, 0]);
                 break;
             case "screens":
                 if (message.Monitors is not { Length: > 0 and <= 32 } screens ||
                     screens.Any(item => item.W is < 5 or > 32768 || item.H is < 5 or > 32768 || item.Id.Length > 256)) return;
-                handoff.Exit(); config = null; monitors = screens;
+                handoff.DesktopChanged(); monitors = screens;
                 if (ready) SendScreens();
                 break;
             case "state":
@@ -183,6 +185,11 @@ internal sealed class BluetoothControl(Action<string> status) : IDisposable
                 Send(Protocol.Message.Leave, [message.SwitchId, message.Edge, (byte)message.Fraction, (byte)(message.Fraction >> 8)]);
                 break;
         }
+    }
+
+    private void ResumeDesktop()
+    {
+        if (handoff.Resume(desktop?.Connected == true) is { } resume) desktop?.Send(resume);
     }
 
     private void SendScreens() => SendJson(Protocol.Message.Screens, new { monitors });
@@ -235,7 +242,7 @@ internal sealed class BluetoothControl(Action<string> status) : IDisposable
         controlRead = controlWrite = bulkRead = bulkWrite = null;
         controls.Clear(); bulk.Clear(); controlEncoder = new(); bulkEncoder = new(); controlDecoder = new(); bulkDecoder = new();
         ready = subscribing = NeedsReconnect = helloSent = false;
-        config = null; handoff.Exit(); desktop?.Send(new DesktopMessage("reset"));
+        handoff.Reset(); desktop?.Send(new DesktopMessage("reset"));
     }
     public void Dispose() { ResetLink(); desktop?.Dispose(); desktop = null; }
 }

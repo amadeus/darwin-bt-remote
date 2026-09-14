@@ -20,6 +20,16 @@
     ]
   },
   {
+    "name": "resume_without_placement",
+    "stream": 0,
+    "type": 22,
+    "payload": "0701",
+    "sequence": 10,
+    "frames": [
+      "0a0316020000000701"
+    ]
+  },
+  {
     "name": "empty",
     "stream": 1,
     "type": 4,

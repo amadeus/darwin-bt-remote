@@ -61,4 +61,12 @@ final class CompanionProtocolTests: XCTestCase {
             XCTAssertEqual(result, packet)
         }
     }
+
+    func testResumeCapabilityIsOptionalForExistingCompanions() throws {
+        let legacy = Data(#"{"v":1,"role":"pc","name":"Companion","chunk":20}"#.utf8)
+        let current = Data(#"{"v":1,"role":"pc","name":"Companion","chunk":20,"resume":true}"#.utf8)
+        XCTAssertNil(try JSONDecoder().decode(CompanionHello.self, from: legacy).resume)
+        XCTAssertEqual(try JSONDecoder().decode(CompanionHello.self, from: current).resume, true)
+        XCTAssertEqual(CompanionProtocol.Message.resume.rawValue, 0x16)
+    }
 }

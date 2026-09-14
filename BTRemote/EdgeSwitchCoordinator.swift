@@ -254,14 +254,20 @@ final class EdgeSwitchCoordinator: ObservableObject {
 
     private func _configureCompanion() {
         guard let target = currentTarget else { return }
-        let monitors = lowEnergy.companion.monitors[target] ?? []
-        guard let monitor = monitors.first(where: { $0.id == pcMonitorID }) ??
-            (pcMonitorID.isEmpty ? monitors.first(where: \.primary) ?? monitors.first : nil) else { return }
-        lowEnergy.companion.sendJSON(
-            PCConfiguration(edge: edge.opposite.wireValue, monitor: monitor.id),
-            type: .config,
-            to: target
-        )
+        let companion = lowEnergy.companion
+        let monitors = companion.monitors[target] ?? []
+        if let monitor = monitors.first(where: { $0.id == pcMonitorID }) ??
+            (pcMonitorID.isEmpty ? monitors.first(where: \.primary) ?? monitors.first : nil)
+        {
+            companion.sendJSON(PCConfiguration(edge: edge.opposite.wireValue, monitor: monitor.id), type: .config, to: target)
+        }
+        if isRemote, captureTarget == target, companion.supportsResume(target) {
+            // HELLO/SCREEN_INFO can arrive after the user has already crossed.
+            // Reassert ownership without another entry warp; EXIT remains ordered
+            // after this message on the control stream if the user returns locally.
+            companionCapture = true
+            companion.send(.resume, payload: Data([switchID, edge.opposite.wireValue]), to: target)
+        }
     }
 
     private func _returnFromPC(target: UUID, switchID: UInt8, edge: UInt8, fraction: UInt16) {

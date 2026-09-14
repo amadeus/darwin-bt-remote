@@ -31,6 +31,7 @@ final class CompanionService: ObservableObject {
         var controlDecoder = CompanionProtocol.Decoder()
         var bulkDecoder = CompanionProtocol.Decoder()
         var helloSent = false
+        var supportsResume = false
     }
 
     private struct Queued { let data: Data; let index: Int; let central: CBCentral }
@@ -121,6 +122,7 @@ final class CompanionService: ObservableObject {
             let hello = try JSONDecoder().decode(CompanionHello.self, from: packet.payload)
             guard hello.v == 1, hello.role == "pc", hello.chunk >= 20,
                   clients[id]?.helloSent == true else { throw CompanionProtocol.Failure.malformed }
+            clients[id]?.supportsResume = hello.resume == true
             ready.insert(id)
             lastSeen[id] = ProcessInfo.processInfo.systemUptime
             onReady?(id)
@@ -156,6 +158,10 @@ final class CompanionService: ObservableObject {
               Set(screens.map(\.id)).count == screens.count else { throw CompanionProtocol.Failure.malformed }
         monitors[id] = screens
         onReady?(id)
+    }
+
+    func supportsResume(_ id: UUID) -> Bool {
+        ready.contains(id) && clients[id]?.supportsResume == true
     }
 
     func sendJSON(_ value: some Encodable, type: CompanionProtocol.Message, to id: UUID) {

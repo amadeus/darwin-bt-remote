@@ -6,7 +6,7 @@ enum CompanionProtocol {
     static let maximumPayload = 65536
     enum Message: UInt8, Sendable {
         case hello = 0x01, ping = 0x02, pong = 0x03, screens = 0x04, config = 0x05
-        case enter = 0x11, enterAck = 0x12, leave = 0x13, state = 0x14, exit = 0x15
+        case enter = 0x11, enterAck = 0x12, leave = 0x13, state = 0x14, exit = 0x15, resume = 0x16
         case nack = 0x7F
     }
 
@@ -111,7 +111,14 @@ enum CompanionProtocol {
     }
 }
 
-struct CompanionHello: Codable { let v: Int; let role: String; let name: String; let chunk: Int }
+struct CompanionHello: Codable {
+    let v: Int
+    let role: String
+    let name: String
+    let chunk: Int
+    var resume: Bool?
+}
+
 struct PCMonitor: Codable, Identifiable, Equatable {
     let id: String
     let x: Int
