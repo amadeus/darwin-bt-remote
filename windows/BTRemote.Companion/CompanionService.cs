@@ -97,7 +97,7 @@ internal sealed class CompanionService : ServiceBase
         };
         process.StartInfo.ArgumentList.Add("--ble-worker");
         worker = new("Opening", "Opening the paired Mac under the service account.", DateTimeOffset.UtcNow, settings.DeviceName);
-        using var job = new WorkerJob();
+        using var job = new WorkerJob(allowBreakaway: true);
         process.Start();
         job.Add(process);
         Log($"Bluetooth worker started: PID {process.Id}");

@@ -66,8 +66,8 @@ internal sealed class BluetoothControl(Action<string> status) : IDisposable
     public void Tick(string address)
     {
         desktop ??= new DesktopHost(DesktopEvent);
-        try { desktop.Refresh(address); }
-        catch (Exception error) { SetDetail("Desktop worker: " + error.Message); }
+        desktop.Refresh(address);
+        if (!desktop.Connected) SetDetail(desktop.Detail);
         if (!Attached) return;
         if ((!ready && Environment.TickCount64 - connectedAt > 10000) ||
             (ready && Environment.TickCount64 - lastSeen > 10000))

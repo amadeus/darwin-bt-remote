@@ -10,11 +10,12 @@ internal sealed class WorkerJob : IDisposable
 {
     private readonly SafeFileHandle handle;
 
-    public WorkerJob()
+    public WorkerJob(bool allowBreakaway = false)
     {
         handle = CreateJobObject(IntPtr.Zero, null);
         if (handle.IsInvalid) throw new Win32Exception(Marshal.GetLastWin32Error());
-        var limits = new ExtendedLimits { Basic = new BasicLimits { Flags = 0x2000 } }; // KILL_ON_JOB_CLOSE
+        // The BLE worker stays in this job. Its explicitly launched console worker must leave Session 0.
+        var limits = new ExtendedLimits { Basic = new BasicLimits { Flags = 0x2000u | (allowBreakaway ? 0x800u : 0) } };
         if (!SetInformationJobObject(handle, 9, ref limits, (uint)Marshal.SizeOf<ExtendedLimits>()))
         {
             var error = Marshal.GetLastWin32Error();

@@ -1075,3 +1075,23 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   timing/cursor-health and return-reason logs without input contents or pointer
   coordinates. Live post-fix movement/Windows-edge-return verification remains
   pending; the intermittent cursor report is not considered resolved yet.
+
+- Windows desktop-launch follow-up: runtime logs showed repeated "Access is
+  denied" followed by an overwritten generic waiting status. The launch path
+  inherited the service BLE worker's Session 0 job into a Session 1 process,
+  violating the Windows job session constraint. Permit explicit breakaway for
+  this desktop child, create it suspended outside that job, retain the native
+  process handle, then resume after pipe supervision is installed. The BLE
+  worker remains in its service-owned kill-on-close job. Desktop shutdown uses
+  explicit process termination on normal stop and a background pipe pump that
+  exits on parent disconnect independently of the desktop message loop.
+- Startup errors now retain the failing operation and native error code in
+  status.json. The desktop still runs as the console user; no account rights,
+  filesystem permissions, or user-facing security settings are broadened.
+  Windows build and 32 core tests pass, including pipe EOF with an unprocessed
+  desktop message and invalid message lengths. Actual launch/edge return on
+  the PC must be retried with the updated Windows package.
+- The second Mac movement capture confirms steady-state dispatch delay fell
+  from 31–41 ms peaks to 0–3 ms after eliminating redundant UI publications.
+  The Mac cursor stayed hidden and parked. Windows edge return remained
+  unavailable because the desktop worker was not starting; hotkey return worked.

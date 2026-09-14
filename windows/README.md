@@ -107,3 +107,15 @@ References: [Microsoft GATT connection behavior](https://learn.microsoft.com/en-
 and [service access rights](https://learn.microsoft.com/en-us/windows/win32/services/service-security-and-access-rights).
 
 Desktop worker API references: [CreateProcessAsUser](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessasuserw) and [Microsoft device instance property definitions](https://github.com/microsoft/win32metadata/blob/main/generation/WinSDK/RecompiledIdlHeaders/shared/devpkey.h).
+
+## Desktop-launch correction (2026-09-13)
+
+The desktop worker now starts outside the BLE worker's Session 0 job, using
+explicit breakaway and the console user's token. Its retained process handle
+and background pipe-disconnect monitor preserve service-owned shutdown across
+sessions. This fixes a launch path that could report "Access is denied" while
+Bluetooth itself stayed connected. Startup failures now keep the operation and
+Win32 error in status.json rather than replacing it with "Waiting for signed-in
+console desktop". No Mac update or Bluetooth re-pairing is needed for this fix.
+
+Windows job session constraint: [AssignProcessToJobObject](https://learn.microsoft.com/en-us/windows/win32/api/jobapi2/nf-jobapi2-assignprocesstojobobject).

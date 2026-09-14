@@ -44,27 +44,28 @@ internal sealed class DesktopWorker : ApplicationContext
             await pipe.ConnectAsync(10000, shutdown.Token);
             if (!GetNamedPipeServerProcessId(pipe.SafePipeHandle, out var pid) || pid != parent)
                 throw new InvalidDataException("Unexpected desktop pipe server");
+            var context = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
+            var connection = Task.Run(async () =>
+            {
+                try
+                {
+                    await DesktopPipe.Pump(pipe, output.Reader,
+                        message => context.Post(_ => Handle(message), null), shutdown.Token).ConfigureAwait(false);
+                }
+                finally { Environment.Exit(0); }
+            });
             if (!DesktopNative.RegisterRawInputDevices([
                 new() { Page = 1, Usage = 2, Flags = 0x2100, Target = window.Handle }
             ], 1, (uint)Marshal.SizeOf<DesktopNative.RawDevice>()))
                 throw new Win32Exception(Marshal.GetLastWin32Error());
-            var writer = WriteAsync();
             Refresh();
             timer.Start();
-            try
-            {
-                while (!shutdown.IsCancellationRequested) Handle(await DesktopPipe.Read(pipe, shutdown.Token));
-            }
-            finally { output.Writer.TryComplete(); await writer; }
+            // Pipe EOF must terminate this process independently of the desktop
+            // message loop: it replaces cross-session job inheritance.
+            await connection.ConfigureAwait(false);
         }
         catch (Exception error) when (error is IOException or OperationCanceledException or Win32Exception or System.Text.Json.JsonException) { }
-        finally { ExitThread(); }
-    }
-
-    private async Task WriteAsync()
-    {
-        try { await foreach (var message in output.Reader.ReadAllAsync(shutdown.Token)) await DesktopPipe.Write(pipe, message, shutdown.Token); }
-        catch { pipe.Dispose(); }
+        finally { Environment.Exit(0); }
     }
 
     private void Send(DesktopMessage message)
