@@ -1,12 +1,13 @@
 import SwiftUI
 
 extension View {
-    /// The grouped form already supplies a 20-point inset at compact window widths.
+    /// Reduce the grouped form's built-in 20-point inset to 10 points.
     @ViewBuilder
     func settingsFormStyle() -> some View {
         if #available(macOS 14.0, *) {
             formStyle(.grouped)
-                .contentMargins(.horizontal, 0, for: .scrollContent)
+                .contentMargins(.horizontal, -10, for: .scrollContent)
+                .contentMargins(.horizontal, -10, for: .scrollIndicators)
         } else {
             formStyle(.grouped)
         }
