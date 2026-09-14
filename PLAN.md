@@ -279,32 +279,61 @@ parking point = center of the configured display. Keep them in
   `SMAppService.mainApp.register()` behind an explicit toggle. New
   `LayoutSettingsView` pane.
 
-**Windows companion (`windows/` in the same repo, C# .NET 8, WinForms tray,
-unpackaged)**
+**Windows companion (`windows/` in the same repo, C# .NET, installed service
+plus desktop worker and optional WinForms tray UI)**
 
-- `BTRemote.Companion.Core` (UI-free): `GattLink` (device picker from paired
-  set, `GattSession`, characteristics, reconnect state machine driven by
-  `ConnectionStatusChanged`/`SessionStatusChanged`/`PBT_APMRESUMEAUTOMATIC`,
-  CCCD re-write after every reconnect, `GattServicesChanged` handler),
-  `Protocol` (same framing as the Mac), `EdgeMonitor` (Raw Input on a
-  message-only window, `RIDEV_INPUTSINK | RIDEV_DEVNOTIFY`, filter to the Mac's
-  device, `GetCursorPos` pinned test, push accumulator, corner/button/ClipCursor
-  gates, `EnumDisplayMonitors` topology, blind-state detection via input-desktop
-  name and `SetWinEventHook(EVENT_SYSTEM_FOREGROUND)` + token integrity level),
-  `CursorPlacer` (`OpenInputDesktop`/`SetThreadDesktop` then `SetCursorPos`,
-  verify with `GetCursorPos`, `SendInput(MOUSEEVENTF_VIRTUALDESK)` fallback),
-  `ClipboardWatcher` (`AddClipboardFormatListener`, `GetClipboardSequenceNumber`
-  echo suppression, Win32 clipboard with retry, honours
-  `ExcludeClipboardContentFromMonitorProcessing`, sets
-  `CanUploadToCloudClipboard=0`), `Settings` (JSON in `%LOCALAPPDATA%`),
-  `StartupRegistration` (HKCU Run key).
-- `BTRemote.Companion.App`: `[STAThread]` single-instance `ApplicationContext`
-  with `NotifyIcon`, `SettingsForm` (device picker, monitor/edge picker,
-  thresholds, clipboard on/off, start at login),
-  `ApplicationHighDpiMode=PerMonitorV2`, `asInvoker`. Published self-contained
-  single-file (compressed, not trimmed; ~30 MB). Simplest is to build it on the
-  PC itself with the .NET SDK; a GitHub Actions publish job is optional.
-  Unsigned, so click through SmartScreen once.
+**Required lifecycle:** start automatically at Windows boot, before anyone signs
+in, and remain available after sign-out and while locked. Closing the tray UI
+must not stop the companion. This is Windows sign-in-screen support; firmware
+and pre-boot disk-unlock screens are outside the Windows service's lifetime.
+
+- `BTRemote.Companion.Core` (UI-free): protocol framing, reconnect state machine,
+  selected paired endpoint, and validated configuration. Keep the working BLE
+  HID input path; the companion provides connection recovery and coordination.
+- `BTRemote.Companion.Service`: installed with the Service Control Manager,
+  automatic startup and recovery on failure. Own the BLE connection, custom
+  GATT subscriptions, HELLO/PING/STATE, and reconnect/service rediscovery.
+  Handle Bluetooth readiness, device changes, power changes, and console-session
+  logon/logoff/lock/unlock transitions without relying on Explorer or a user
+  startup entry. Store machine configuration in an ACL-protected `%ProgramData%`
+  directory. Initial pairing and device selection happen during setup; subsequent
+  boot/reconnect must not require user consent dialogs or a logged-in account.
+- **Service-account BLE access is a pass/fail spike, not an assumption.** Test
+  paired-device enumeration, uncached discovery, notifications and writes under
+  the actual service identity before first login and after logout. Start with
+  the tested WinRT GATT path; evaluate native `BluetoothGATT*` APIs if service
+  context prevents it. Select the service identity/privileges from those results;
+  do not require a saved personal account password or an interactive login.
+- `BTRemote.Companion.DesktopWorker`: service-managed worker in the active
+  physical console session, with the desktop access needed for `EdgeMonitor`
+  and `CursorPlacer`. Services run in Session 0; `SetThreadDesktop` alone does
+  not move a service into the console session. Prove worker launch and desktop
+  access at Winlogon before login, after sign-out, while locked, and during UAC.
+  Use Raw Input on a worker-owned window, filter to the Mac device, and retain
+  the planned pinned-cursor, push, corner/button and ClipCursor gates. Place
+  via `SetCursorPos` on the input desktop and verify the resulting coordinates.
+  Recreate desktop-bound workers/windows when required; discard stale ENTER,
+  LEAVE and placement results across session/desktop changes. Only the active
+  console worker may influence control; fast user switching must not leave an
+  old worker controlling the new session. Report actual capability failures as
+  blind; a running service does not by itself prove desktop access works.
+- `BTRemote.Companion.App`: optional, unprivileged WinForms `NotifyIcon` and
+  settings UI for device/monitor selection, thresholds, clipboard and status.
+  Local, session-scoped named-pipe IPC with explicit ACLs connects the UI and
+  workers to the service; privileged requests are validated. Install/uninstall
+  requires elevation once; everyday use and service startup need no UAC prompt.
+- `ClipboardWatcher` (M4) runs in the logged-in user session, never on Winlogon
+  or a secure desktop. Suspend sync while locked/logged out and clear queued
+  clipboard payloads on session changes. Keep user clipboard data out of the
+  machine-wide service configuration and isolate different users' sessions.
+- Package the service, worker and UI together, with install/start/stop/uninstall
+  scripts for the personal build. The existing HKCU Run-only proposal is
+  superseded; an optional tray startup entry is not responsible for availability.
+
+References: [Microsoft service/desktop isolation](https://learn.microsoft.com/en-us/windows/win32/services/interactive-services),
+[SetCursorPos desktop requirements](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setcursorpos),
+and [native GATT discovery](https://learn.microsoft.com/en-us/windows/win32/api/bluetoothleapis/nf-bluetoothleapis-bluetoothgattgetservices).
+These document constraints and candidate APIs, not a verified pre-login prototype.
 
 ### 3.2 Control flow
 
@@ -471,6 +500,11 @@ After HELLO each side uses `min(own chunk, peer chunk)`.
 | `formats` | bitmask: `0x0001` UTF-8 text, `0x0002` HTML, `0x0004` RTF, `0x0008` PNG, `0x0010` file list. v1 uses `0x0001` only.                                                 |
 | `format`  | one bit of `formats`                                                                                                                                                |
 | `stream`  | as in the flags nibble                                                                                                                                              |
+
+`desktop` reports the current desktop independently of `blind`. Once a desktop
+worker is supported there, Winlogon or an elevated foreground app is not by
+itself a blind condition; send nonzero `blind` only when detection/placement is
+actually unavailable. Validate these semantics in the M3 desktop-transition spike.
 
 **JSON shapes** (meta stream; unknown keys ignored, missing keys take the default shown).
 
@@ -646,6 +680,9 @@ target → signing → CI. iOS first because it turns the Classic deletion in
 | S4 (U6, §2.4) | Console app with Raw Input + `GetCursorPos`, driven by the Mac's HID mouse: confirm deltas at the clamped edge, coalescing rate, `RIDI_DEVICENAME` string.                                                                                                                                                                                             | Pinned-plus-push condition is detectable; device string known.                                                                                                                                                                                                                                                                            |
 | S5 (U5)       | `SetCursorPos` from the console app while Task Manager is foreground; and while locked.                                                                                                                                                                                                                                                                | Know which blind states need reporting.                                                                                                                                                                                                                                                                                                   |
 
+The service-context and pre-login worker gates in M3 extend S3–S5: interactive
+console-app results alone do not establish service or Winlogon support.
+
 S1 and S2 the agent builds and runs alone on this Mac. S3, S4 and S5 are
 **manual checkpoints**: the agent writes the spike code (Swift changes and a
 .NET console app), Amadeus runs them with the PC and reports what Device
@@ -710,7 +747,7 @@ M3), and the way back is the toggle hotkey or an automatic release. Rule 8 in
   release, with no stuck key/modifier afterward; test both directions and
   holding the toggle shortcut to confirm it switches only once.
 
-### M3 — Companion v1: edge return and cursor placement
+### M3 — Companion service: pre-login availability, edge return and cursor placement
 
 - Windows reconnect: retain the selected paired BLE endpoint and initiate
   connection/service rediscovery when the Mac returns. One-shot uncached GATT
@@ -722,20 +759,31 @@ M3), and the way back is the toggle hotkey or an automatic release. Rule 8 in
 - Mac: retain the existing HID descriptor and report encoding. If S3 shows
   the companion service requires re-pairing, remove the PC bond and pair again;
   otherwise retain it. Do not bundle unrelated HID changes into this milestone.
-- Windows: `windows/` solution as in §3.1, tray app, device picker,
-  `EdgeMonitor` from S4, `CursorPlacer` from S5, blind-state reporting, HKCU Run
-  key, GitHub Actions publish job.
+- First gate: install a minimal boot-started service and prove existing-pair
+  BLE reconnect/discovery and custom GATT traffic before login and after logout.
+  Then prove the service-managed console worker can monitor/place the cursor
+  across Winlogon/Default desktop transitions. A tray-only prototype does not
+  satisfy this gate. If a required path is unavailable, report the concrete
+  blocker before continuing with a reduced scope.
+- Windows: `windows/` solution as in §3.1, service installer/lifecycle,
+  session/desktop worker, optional tray/device picker, `EdgeMonitor` from S4,
+  `CursorPlacer` from S5, blind-state reporting, GitHub Actions publish job.
 - Mac Layout pane gains the PC side: monitor list from `SCREEN_INFO`, edge
   picker, push threshold, and the pairing status of the companion.
 - Exit: both directions by mouse alone; the toggle hotkey and automatic
-  releases still work; menu bar shows "PC detector blind" during UAC/elevated
-  apps.
+  releases still work. The service is available before login and after logout;
+  the menu bar reports blind when the desktop worker actually cannot operate.
 - **Manual checkpoint M3:** re-pair only if needed; both directions by mouse with
   the cursor landing at the matching height; open Task Manager and a UAC prompt
-  on the PC and confirm the menu bar shows blind and the toggle hotkey still
-  returns; stop the Windows companion while controlling the PC and confirm
+  on the PC and verify cursor/edge capability, accurate blind status on failure,
+  and that the toggle hotkey still returns; stop the Windows companion while controlling the PC and confirm
   the hotkey still returns immediately; sleep and wake the PC and confirm the
-  companion reconnects.
+  companion reconnects. Additionally: reboot the PC and use it at the sign-in
+  screen before the first login; restart BTRemote while the PC is signed out;
+  sign in, lock/unlock, sign out, and switch users. Verify Bluetooth recovery,
+  cursor placement and edge return in each state, not just a running service.
+  Closing the tray must leave control available. The Mac hotkey remains the
+  escape hatch throughout; no separate emergency recovery process is added.
 
 ### M4 — Clipboard v1, text over BLE
 
@@ -764,8 +812,9 @@ M3), and the way back is the toggle hotkey or an automatic release. Rule 8 in
 ### M6 — Later
 
 - Clipboard v2 over the hybrid LAN channel (HTML/RTF/PNG/files).
-- Optional uiAccess/elevated install of the companion for edge-return while
-  elevated apps are focused.
+- Further elevated-desktop compatibility beyond the service/desktop-worker
+  support required and validated in M3; uiAccess is a candidate only if needed.
+  Pre-login and logged-out availability are M3 requirements, not deferred here.
 - Optional single-monitor "no companion" fallback with an absolute-pointer
   collection (Report ID 7). Rejected for now (§6); would cost another re-pair
   and needs a game-mode toggle back to relative.
@@ -818,17 +867,20 @@ Conventions to respect: Swift 6 strict concurrency (`@MainActor` classes,
   build/CI/fastlane paths, so every later change is simpler.
 - **Status-bar agent, no Dock icon.** Both apps live as status/tray icons that
   open a settings window: `LSUIElement` + `MenuBarExtra` + `Settings` scene on
-  the Mac, `NotifyIcon` + settings form on Windows. The Remote/Keyboard views
-  stay reachable from the status menu.
+  the Mac, optional `NotifyIcon` + settings form on Windows. The Windows
+  service remains running independently of its UI. Remote/Keyboard views have
+  been removed at Amadeus's request.
 - **Edge detection is the switching mechanism; the Ctrl+Alt chord goes.** The
   only keyboard shortcut is an optional, fully user-mappable **toggle hotkey**
   that focuses whichever machine is not focused (default Fn+Escape, can be
   disabled). The hotkey is the escape hatch when a PC-side condition prevents
   edge-return; it is handled locally and never waits on the PC. Automatic
   releases in §3.2 also restore local input on link loss and tap disable.
-- **Companion in C# .NET 8 WinForms.** Fastest to build and iterate on; ~30 MB
-  self-contained single-file exe is fine for personal use. Rust only if size
-  ever matters.
+- **Windows companion runs as an installed, automatic-start service.** Required
+  before login, after logout and while locked. C# .NET service/core, separate
+  console-session desktop worker, optional WinForms tray UI. Service-context
+  Bluetooth and pre-login desktop access must pass the M3 spikes. The tray is
+  not the lifetime owner; this supersedes the asInvoker/HKCU Run-only design.
 
 - **M2 works without the companion.** Arming requires only a PC subscribed to
   HID, not a companion handshake; the companion adds placement and
@@ -845,7 +897,8 @@ Conventions to respect: Swift 6 strict concurrency (`@MainActor` classes,
 - **Agent-driven.** The agent implements, builds, tests, stages and commits;
   Amadeus tests only at the manual checkpoints (§0, M0–M4, S3–S5).
 
-Nothing else is open; the rest is engineering.
+Product requirements above are decided. Service-account BLE access and
+pre-login desktop-worker mechanics remain engineering gates to verify on Windows.
 
 ---
 
@@ -856,7 +909,7 @@ Nothing else is open; the rest is engineering.
 | Cursor cannot be hidden from the background on macOS 26                                | S1 first; Deskflow's CGS trick is allowed in a personal build; warp-parking is the public fallback that always works.                                                                                                                             |
 | Existing Windows bond does not see the new service                                     | S3; one-time re-pair; keep the Service Changed hack as a fallback with logging.                                                                                                                                                                   |
 | BLE throughput too low for clipboard                                                   | Text only in v1 with a cap; LAN hybrid in v2.                                                                                                                                                                                                     |
-| Companion blind during UAC / elevated apps / lock                                      | STATE heartbeat, menu-bar indicator, toggle hotkey, optional uiAccess install later.                                                                                                                                                              |
+| Service starts but cannot reconnect BLE or reach the console/Winlogon desktop           | Service-context and pre-login worker gates in M3; verify actual control, not process liveness. STATE/blind indicator and local toggle hotkey remain available.                                                                                                                                                              |
 | Two menu-bar icons / capture dying when the window closes                              | Ownership move to the App and removal of `onDisappear` stop (M2).                                                                                                                                                                                 |
 | Stuck with a hidden cursor and input going to the PC                                   | Local toggle hotkey returns without a PC or companion response; system tap-disable, Secure Input and link loss also restore local input (§3.5). |
 | Lint gate already red                                                                  | Fix in M0 before any PR.                                                                                                                                                                                                                          |
@@ -925,3 +978,9 @@ Nothing else is open; the rest is engineering.
   startup Service Changed and short-form HID advertising did not recover it.
   Temporary probes were removed. Windows discovery remains the only verified
   recovery, although these tests do not prove all Mac-only solutions impossible.
+
+- New Windows lifecycle requirement (2026-09-13): companion must run as a
+  service and remain available when logged out, including boot before first
+  login. Replaced the tray-owned lifecycle with service + desktop worker +
+  optional tray UI; added service-context BLE and Winlogon validation gates to
+  M3. This is a plan update; no Windows service implementation exists yet.
