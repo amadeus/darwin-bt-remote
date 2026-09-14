@@ -1250,5 +1250,17 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   multiple-keyboard/unplug state, handoff release rules, and notification ordering.
   Signed build and strict lint pass. The restarted Mac app logged raw monitoring
   opened=true/result=0 with existing permissions; Maingear reconnected and Windows
-  edge return is ready. Physical Windows key validation remains pending; this
-  does not establish signed-out or secure-desktop behavior yet.
+  edge return is ready. User confirmed the Windows keyboard test, including
+  Ctrl+Alt+Delete. This does not establish signed-out reconnect behavior.
+- Secure-desktop recovery: the Windows desktop worker called handoff.Exit() when
+  Ctrl+Alt+Delete made the Default desktop inaccessible. Returning to Default
+  restored the ready status but not the active handoff, so edge return stayed
+  disabled until a hotkey return and fresh crossing. Suspend observation while
+  blind and retain the active switch ID; an actual EXIT/reset/config change still
+  invalidates it. Skip monitor enumeration while on a secure desktop, and refresh
+  availability on the first returning raw mouse event rather than waiting for the
+  one-second status timer. Remember valid ENTER ownership even when secure
+  desktop prevents initial cursor placement. Companion update required; physical
+  secure-screen-close/edge-return verification is pending. All 38 .NET tests
+  pass; the win-x64 self-contained EXE publishes without warnings/errors and
+  the replacement ZIP is verified.

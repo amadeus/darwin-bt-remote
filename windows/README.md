@@ -8,7 +8,7 @@ Clipboard sync and Winlogon desktop switching are still pending.
 
 ## Install and configure
 
-1. Keep the existing Mac pairing and leave BTRemote advertising on the Mac.
+1. Keep the existing Mac pairing and leave BTRemote running on the Mac.
 2. Extract the ZIP and open **BTRemote.Companion.exe**. Approve the Windows
    administrator prompt to install or update; the companion window opens
    automatically afterward. No scripts or .NET installation are needed.
@@ -70,8 +70,12 @@ update closes the old companion automatically. Leave the service running and tes
   should occur. Quit the tray and repeat edge switching; it should still work.
 - Restart the Mac app and confirm both HID and companion reconnect without
   re-pairing. If the companion drops while remote, the Mac restores local input
-  after its heartbeat expires. A desktop change disarms the current return;
-  use the hotkey and cross again after returning to the normal desktop.
+  after its heartbeat expires.
+- While controlling Windows, press Ctrl+Alt+Delete, then close the security
+  screen and return through the Windows edge. Edge return resumes on the normal
+  desktop without a hotkey round trip. While the security screen is open, use
+  the Mac hotkey if needed; returning locally that way must prevent a stale
+  Windows edge event from switching again after the security screen closes.
 
 Signed-out/pre-login testing is deferred at Amadeus's request. The service
 lifecycle remains available while signed out, but this desktop worker only

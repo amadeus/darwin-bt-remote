@@ -56,4 +56,41 @@ public sealed class EdgeControlTests
         session.Exit(); Assert.False(session.Accept(2));
         session.Enter(255); session.Enter(0); Assert.False(session.Accept(255)); Assert.True(session.Accept(0));
     }
+    [Fact]
+    public void SecureDesktopSuspendsAndResumesTheSameHandoff()
+    {
+        var session = new HandoffSession();
+        session.Enter(42);
+        Assert.True(session.CanReturn);
+        session.SetAvailable(false);
+        Assert.False(session.CanReturn);
+        Assert.True(session.Accept(42));
+        session.SetAvailable(true);
+        Assert.True(session.CanReturn);
+        Assert.True(session.Accept(42));
+        Assert.True(EdgeDetector.Observe(Monitor, [Monitor], new(1, Monitor.Id), -1, 300, 1, 0, false, false));
+    }
+    [Fact]
+    public void HotkeyExitWhileSecureCannotBeRevivedByDesktopRecovery()
+    {
+        var session = new HandoffSession();
+        session.Enter(42);
+        session.SetAvailable(false);
+        session.Exit();
+        session.SetAvailable(true);
+        Assert.False(session.CanReturn);
+        Assert.False(session.Accept(42));
+    }
+    [Fact]
+    public void EntryDuringSecureDesktopBecomesReturnableWhenDesktopRecovers()
+    {
+        var session = new HandoffSession();
+        session.SetAvailable(false);
+        session.Enter(43);
+        Assert.False(session.CanReturn);
+        session.SetAvailable(true);
+        Assert.True(session.CanReturn);
+        Assert.True(session.Accept(43));
+    }
+
 }

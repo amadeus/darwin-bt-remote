@@ -58,6 +58,11 @@ public static class EdgeDetector
 public sealed class HandoffSession
 {
     public byte? Active { get; private set; }
+    public bool Available { get; private set; } = true;
+    public bool CanReturn => Available && Active is not null;
+    // Losing desktop visibility suspends observation, not Mac ownership. EXIT
+    // still invalidates the session while suspended, so recovery cannot revive it.
+    public void SetAvailable(bool available) => Available = available;
     public void Enter(byte id) => Active = id;
     public void Exit() => Active = null;
     public bool Accept(byte id) => Active == id;
