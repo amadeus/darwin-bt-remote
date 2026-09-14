@@ -833,10 +833,35 @@ M3), and the way back is the toggle hotkey or an automatic release. Rule 8 in
   lock-to-screen, remembered exit points on both machines (used by the toggle
   hotkey and by hotkey re-entry), wake PC display on
   enter (consumer report), toggle-key (Caps/Num) sync using the LED output
-  report, first-run flow (Accessibility → pair in Windows Settings → install
-  companion → pick edges), launch at login (`SMAppService`, opt-in), companion
+  report, first-run flow (Mac permissions → install companion → Connect a Mac
+  in the companion → allow input on the Mac → pick edges), launch at login (`SMAppService`, opt-in), companion
   tray states, Windows tray auto-launch after user login (deferred to final
   polish; independent of boot-started service), README rewrite.
+- In-app Windows pairing: replace the permanent paired-device dropdown,
+  Refresh devices and Use selected Mac controls with **Connect a Mac**.
+  Discover nearby candidates, let the user choose the Mac, perform pairing
+  through Windows APIs (including required system confirmations), verify the
+  BTRemote service and save the endpoint automatically. Reuse an existing bond
+  when available. Once configured, show the selected Mac and connection status
+  with **Change Mac…** for replacement. Prototype against the actual Mac before
+  finalizing discovery/pairing behavior; Windows Bluetooth Settings should not
+  be required for the normal setup flow.
+- Complete Windows removal: add **Remove BTRemote from this PC…** to the tray
+  app, with confirmation that includes removing the selected Mac's Windows
+  Bluetooth pairing. Request administrator access as needed, stop workers and
+  the service, unregister the service, remove startup entries/shortcuts, remove
+  that specific pairing, clear remembered devices/preferences/logs and delete
+  installed app files, then exit the tray. Remove cleanup helpers after use.
+  Other Bluetooth pairings are untouched. A failed step must be reported and
+  remain retryable instead of claiming successful removal. The downloaded
+  EXE/ZIP can be deleted by the user afterward; removal covers app-managed
+  state, not Windows execution/security history. This supersedes the earlier
+  suggestion to preserve the selected Mac's pairing during cleanup.
+- Polish validation: pair and reconnect entirely through the companion,
+  including reusing an existing bond and changing Macs; exercise cleanup from
+  a running and stopped service, verify selected pairing/service/startup/settings/
+  logs/installed files are removed, and confirm a subsequent launch offers fresh
+  setup. In-app pairing and complete removal are deferred to this polish pass.
 
 ### M6 — Later
 
