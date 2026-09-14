@@ -137,7 +137,8 @@ final class EdgeSwitchCoordinator: ObservableObject {
     }
 
     private func _returnLocal(at point: CGPoint?, reason: String) {
-        if isRemote { diagnostics.transition("return: " + reason) }
+        let wasRemote = isRemote
+        let startedAt = ProcessInfo.processInfo.systemUptime
         if isRemote, let target = captureTarget {
             lowEnergy.companion.send(.exit, payload: Data([switchID]), to: target)
         }
@@ -147,6 +148,10 @@ final class EdgeSwitchCoordinator: ObservableObject {
         directInput.stop()
         isRemote = false
         captureTarget = nil
+        if wasRemote {
+            let duration = Int((ProcessInfo.processInfo.systemUptime - startedAt) * 1000)
+            diagnostics.transition("return: \(reason) localRestoreMs=\(duration)")
+        }
     }
 
     var shortcutLabel: String {

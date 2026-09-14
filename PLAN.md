@@ -1128,3 +1128,13 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   The updated Mac app is running and its Layout view no longer has a delay
   slider. The Windows package is ready; perceived round-trip responsiveness
   still needs the user to try the updated builds on the physical machines.
+- Return-lag follow-up: the user clarified that the cursor already appears on
+  the Mac, then briefly refuses to move. CursorConcealer restored mouse/cursor
+  association before its final cursor warp, matching a known macOS suppression
+  issue fixed in GLFW. Warp first, reassociate immediately afterward, then show
+  the cursor. This is a Mac-only correction; Windows edge/transport code is
+  unchanged. Return diagnostics now record synchronous local restoration time
+  (not Bluetooth transit or time until the next physical movement). Signed
+  build, all 21 Swift tests and strict lint pass; physical feel confirmation
+  remains pending.
+  Reference: https://github.com/glfw/glfw/commit/157ebb80aafe263b86fd450f21a193f0412fb717

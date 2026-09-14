@@ -55,12 +55,14 @@ final class CursorConcealer {
 
     func restore(at point: CGPoint? = nil) {
         guard origin != nil || panel != nil || hidden else { return }
+        // reassociate after warping: reversing this order can leave local motion
+        // suppressed briefly after return (also handled by GLFW's Cocoa backend)
+        if let position = point ?? origin { CGWarpMouseCursorPosition(position) }
         CGAssociateMouseAndMouseCursorPosition(1)
         if hidden {
             CGDisplayShowCursor(CGMainDisplayID())
             hidden = false
         }
-        if let position = point ?? origin { CGWarpMouseCursorPosition(position) }
         panel?.orderOut(nil)
         panel = nil
         parkingPoint = nil
