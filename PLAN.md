@@ -1313,3 +1313,10 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   Signed build and strict lint pass. Running app logs confirm advertising as
   `Amadeus’s Mac Studio`; Setup no longer exposes the old name row. Fresh
   Windows discovery/pairing behavior remains for the user to test.
+- CI/test cleanup: removed the retired PowerShell Install.cmd/Install.ps1 entry
+  point, its NativeCommand helper and argument test/CI step. EXE installation,
+  update/state preservation and service lifecycle testing remains in Windows CI;
+  the separate development uninstaller remains available. Renamed the now-internal
+  peripheral trace method to satisfy CI's identifier naming rule. Formatting,
+  strict lint, signed Mac build, 49 Swift tests and 45 Windows core tests pass
+  locally. Windows EXE lifecycle validation requires the next Windows CI run.

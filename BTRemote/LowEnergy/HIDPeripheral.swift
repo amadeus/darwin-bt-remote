@@ -164,7 +164,7 @@ final class HIDPeripheral: NSObject, ObservableObject {
             serviceChangedObj = svc
             pManager.add(svc)
         }
-        _trace("Service Changed cycled")
+        trace("Service Changed cycled")
     }
 
     /// temp service used to perturb the GATT to trigger Service Changed
@@ -384,7 +384,7 @@ final class HIDPeripheral: NSObject, ObservableObject {
         }
     }
 
-    func _trace(_ message: @autoclosure () -> String) {
+    func trace(_ message: @autoclosure () -> String) {
         guard UserDefaults.standard.bool(forKey: AppSettings.developerModeKey) else { return }
         let text = message()
         log.info("\(text, privacy: .public)")
@@ -394,14 +394,14 @@ final class HIDPeripheral: NSObject, ObservableObject {
         centralObjects[central.identifier] = central
         guard !connectedCentrals.contains(central.identifier) else { return }
         connectedCentrals.insert(central.identifier)
-        _trace("central tracked: \(central.identifier)")
+        trace("central tracked: \(central.identifier)")
     }
 }
 
 extension HIDPeripheral: @preconcurrency CBPeripheralManagerDelegate {
     func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
         state = peripheral.state
-        _trace("CB state -> \(peripheral.state.rawValue)")
+        trace("CB state -> \(peripheral.state.rawValue)")
         if peripheral.state == .poweredOn, isHIDServiceAllowed, !isHIDServiceAdded {
             installServices()
         }
@@ -448,7 +448,7 @@ extension HIDPeripheral: @preconcurrency CBPeripheralManagerDelegate {
             log.error("startAdvertising error: \(error.localizedDescription, privacy: .public)")
         } else {
             isAdvertising = true
-            _trace("advertising started")
+            trace("advertising started")
             reconcileAdvertising()
         }
     }
@@ -461,7 +461,7 @@ extension HIDPeripheral: @preconcurrency CBPeripheralManagerDelegate {
         if companion.owns(characteristic) { companion.subscribed(central, characteristic); return }
         _trackInteraction(from: central)
         subscribedCentrals[central.identifier, default: []].insert(characteristic.uuid)
-        _trace("subscribe: \(central.identifier) -> \(characteristic.uuid)")
+        trace("subscribe: \(central.identifier) -> \(characteristic.uuid)")
         if let input = inputKind(characteristic) {
             inputSubscriptions[central.identifier, default: []].insert(input)
         }
@@ -487,7 +487,7 @@ extension HIDPeripheral: @preconcurrency CBPeripheralManagerDelegate {
         didUnsubscribeFrom characteristic: CBCharacteristic
     ) {
         if companion.owns(characteristic) { companion.unsubscribed(central); return }
-        _trace("unsubscribe: \(central.identifier) <- \(characteristic.uuid)")
+        trace("unsubscribe: \(central.identifier) <- \(characteristic.uuid)")
         if let input = inputKind(characteristic) {
             inputSubscriptions[central.identifier]?.remove(input)
         }
@@ -519,7 +519,7 @@ extension HIDPeripheral: @preconcurrency CBPeripheralManagerDelegate {
     }
 
     func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveRead request: CBATTRequest) {
-        _trace("read: \(request.central.identifier) -> \(request.characteristic.uuid)")
+        trace("read: \(request.central.identifier) -> \(request.characteristic.uuid)")
         if companion.owns(request.characteristic) { companion.respond(to: request, using: peripheral); return }
         _trackInteraction(from: request.central)
         scheduleServiceChanged()
@@ -569,7 +569,7 @@ extension HIDPeripheral: @preconcurrency CBPeripheralManagerDelegate {
             return
         }
         for request in requests {
-            _trace("write: \(request.central.identifier) -> \(request.characteristic.uuid)")
+            trace("write: \(request.central.identifier) -> \(request.characteristic.uuid)")
             _trackInteraction(from: request.central)
             handleWriteRequest(request)
         }

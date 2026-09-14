@@ -56,7 +56,7 @@ extension HIDPeripheral {
             // Match the system Bluetooth identity instead of advertising an app alias.
             if let name = IOBluetoothHostController.default()?.nameAsString(), !name.isEmpty {
                 advertisement[CBAdvertisementDataLocalNameKey] = name
-                _trace("advertising with system Bluetooth name: \(name)")
+                trace("advertising with system Bluetooth name: \(name)")
             }
             pManager.startAdvertising(advertisement)
         }

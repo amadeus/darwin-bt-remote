@@ -30,9 +30,6 @@ jobs:
         run: dotnet build windows/BTRemote.Companion.sln -c Release
       - name: Test companion policies
         run: dotnet test windows/BTRemote.Companion.Tests -c Release --no-build
-      - name: Check Windows PowerShell installer arguments
-        shell: powershell
-        run: ./windows/tests/Test-NativeCommand.ps1
       - name: Publish self-contained companion
         run: >-
           dotnet publish windows/BTRemote.Companion/BTRemote.Companion.csproj
