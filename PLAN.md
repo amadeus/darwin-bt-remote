@@ -1172,3 +1172,18 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   code is unchanged. Windows build/publish and all 35 core tests pass; actual
   Windows hide/reveal, first-click delivery and stop-while-hidden behavior need
   the live PC check documented in windows/README.md.
+- The user confirmed Windows inactive-cursor hiding works.
+- Mac entry performance: retain the prepared cursor-hiding NSPanel between
+  crossings instead of constructing and destroying a native window on every
+  handoff. Keep it ordered out while local and reposition it on entry. Capture
+  diagnostics now include synchronous setup time. Signed build, all 23 Swift
+  tests and strict lint pass. The user reports entry feels better; repeated
+  crossings measured setup mostly 1 ms (occasionally 8–9 ms), with recent input
+  dispatch maxima 9–22 ms versus the earlier 26–42 ms entry samples. These are
+  Mac timings, not end-to-end Windows cursor latency; some dispatch spikes remain.
+- After this Mac restart, Windows edge return was temporarily unavailable while
+  HID control and the hotkey worked. The Layout display picker was initially
+  absent despite the ready label, then appeared; edge return recovered without
+  another build/restart and repeated successful returns are logged. Late display
+  configuration is suspected, not yet proven. Investigate reconnect readiness
+  separately; the cursor-window change does not alter the companion protocol.

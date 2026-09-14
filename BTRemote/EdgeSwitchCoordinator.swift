@@ -282,6 +282,7 @@ final class EdgeSwitchCoordinator: ObservableObject {
             tapReady = success
             if !success { lastError = L10n.DirectInput.captureFailedString }
         case let .begin(generation, origin):
+            let startedAt = ProcessInfo.processInfo.systemUptime
             guard tap.isCurrent(generation) else { return }
             guard targetAvailable, permissionGranted, !IsSecureEventInputEnabled(),
                   let geometry else { returnLocal(); return }
@@ -294,7 +295,8 @@ final class EdgeSwitchCoordinator: ObservableObject {
             captureTarget = currentTarget
             directInput.start(HIDInput.make(lowEnergy: lowEnergy, central: central))
             isRemote = true
-            diagnostics.transition("remote capture began")
+            let setupMs = Int((ProcessInfo.processInfo.systemUptime - startedAt) * 1000)
+            diagnostics.transition("remote capture began setupMs=\(setupMs)")
             switchID &+= 1
             companionCapture = currentTarget.map { lowEnergy.companion.ready.contains($0) } ?? false
             if let target = currentTarget {

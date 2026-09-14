@@ -11,7 +11,7 @@ final class CursorConcealer {
     private let setSuppressionInterval: SetSuppressionInterval?
     private let connection: Connection?
     private let setProperty: SetProperty?
-    private var panel: NSPanel?
+    private let panel: NSPanel
     private var hidden = false
     private var origin: CGPoint?
     private(set) var parkingPoint: CGPoint?
@@ -23,6 +23,19 @@ final class CursorConcealer {
             .map { unsafeBitCast($0, to: SetSuppressionInterval.self) }
         connection = handle.flatMap { dlsym($0, "_CGSDefaultConnection") }.map { unsafeBitCast($0, to: Connection.self) }
         setProperty = handle.flatMap { dlsym($0, "CGSSetConnectionProperty") }.map { unsafeBitCast($0, to: SetProperty.self) }
+        // Prepare the native window before capture, and retain it between crossings.
+        // Creating it on the input path stalls forwarding while AppKit sets it up.
+        panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 1, height: 1),
+            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false
+        )
+        panel.level = .screenSaver
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+        panel.hidesOnDeactivate = false
+        panel.isOpaque = false
+        // a near-transparent hit-testable window prevents hover in the underlying application
+        panel.backgroundColor = NSColor.black.withAlphaComponent(0.01)
+        panel.hasShadow = false
     }
 
     func hide(at point: CGPoint, returningTo returnPoint: CGPoint) -> Bool {
@@ -34,19 +47,8 @@ final class CursorConcealer {
         parkingPoint = point
         // AppKit uses bottom-left coordinates; Quartz global space starts at the primary display's top-left
         let primaryHeight = CGDisplayBounds(CGMainDisplayID()).height
-        let panel = NSPanel(
-            contentRect: NSRect(x: point.x, y: primaryHeight - point.y - 1, width: 1, height: 1),
-            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false
-        )
-        panel.level = .screenSaver
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-        panel.hidesOnDeactivate = false
-        panel.isOpaque = false
-        // a near-transparent hit-testable window prevents hover in the underlying application
-        panel.backgroundColor = NSColor.black.withAlphaComponent(0.01)
-        panel.hasShadow = false
+        panel.setFrameOrigin(NSPoint(x: point.x, y: primaryHeight - point.y - 1))
         panel.orderFrontRegardless()
-        self.panel = panel
         guard CGWarpMouseCursorPosition(point) == .success,
               CGAssociateMouseAndMouseCursorPosition(0) == .success,
               CGDisplayHideCursor(CGMainDisplayID()) == .success
@@ -59,7 +61,7 @@ final class CursorConcealer {
     }
 
     func restore(at point: CGPoint? = nil) {
-        guard origin != nil || panel != nil || hidden else { return }
+        guard origin != nil || hidden else { return }
         // reassociate after warping: reversing this order can leave local motion
         // suppressed briefly after return (also handled by GLFW's Cocoa backend)
         if let position = point ?? origin {
@@ -74,8 +76,7 @@ final class CursorConcealer {
             CGDisplayShowCursor(CGMainDisplayID())
             hidden = false
         }
-        panel?.orderOut(nil)
-        panel = nil
+        panel.orderOut(nil)
         parkingPoint = nil
         origin = nil
         if let connection, let setProperty {
