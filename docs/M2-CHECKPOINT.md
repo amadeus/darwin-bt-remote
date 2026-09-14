@@ -9,7 +9,7 @@ open .build/DerivedData/Build/Products/Debug/BTRemote.app
 ```
 
 The app lives in the menu bar after you close its window. Choose **Open controls…**
-to reopen Setup, Layout, Remote, and Settings.
+to reopen Setup, Layout, and Settings.
 
 ## Set up
 
@@ -17,8 +17,9 @@ to reopen Setup, Layout, Remote, and Settings.
    add this worktree's built `BTRemote.app` if necessary and enable it. An older
    BTRemote permission entry may belong to a different build/signature.
 2. Pair the Mac from Windows Bluetooth Settings as with the original app.
-   This build keeps the existing HID descriptor; it does not require re-pairing
-   merely because it adds edge switching.
+   Horizontal scrolling now adds a field to the HID mouse descriptor. An existing
+   Windows pairing may need to be removed and paired once more to refresh its
+   cached descriptor.
 3. In **Setup**, keep only the PC active. **Layout** waits for exactly one active
    central subscribed to HID; selecting multiple active hosts leaves switching
    unarmed.
@@ -35,6 +36,10 @@ to reopen Setup, Layout, Remote, and Settings.
   and input controls the PC from its existing cursor position.
 - Press and release the toggle shortcut: control returns to the Mac. Repeat
   from another foreground app and with the controls window closed.
+- In a Windows app with content wider than its viewport, try horizontal trackpad
+  scrolling in both directions, then vertical and diagonal scrolling. Horizontal
+  scrolling uses the standard HID AC Pan field; confirm the content follows the
+  same gesture direction as on the Mac. Live Windows validation is pending.
 - Hold a letter (including autorepeat), Shift/Ctrl, or a mouse button while
   requesting a handoff. Releases should reach the current machine before it
   switches. A pending Mac edge request cancels if you move away from the edge.
@@ -63,7 +68,9 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 
 The standalone tests cover exposed-edge geometry, negative coordinates, corner
 exclusion, exact hotkey matching, repeat suppression, and release-before-switch.
-The input reports and BLE backend are unchanged from the upstream baseline.
+They also cover horizontal and diagonal scroll capture, signed report encoding,
+the mouse descriptor's field layout, and separate three-byte boot-mouse reports.
+The report-mode mouse payload is now five bytes: buttons, X, Y, wheel, pan.
 
 A bounded `--cursor-spike` diagnostic runs inside the same signed app, without
 starting Bluetooth or forwarding input, and writes `/tmp/bt-cursor-spike.log`.

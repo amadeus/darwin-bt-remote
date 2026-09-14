@@ -5,6 +5,7 @@ struct MouseReport: Sendable, Equatable {
     var dX: Int8 = 0
     var dY: Int8 = 0
     var wheel: Int8 = 0
+    var pan: Int8 = 0
 
     static let zero = MouseReport()
 
@@ -13,8 +14,14 @@ struct MouseReport: Sendable, Equatable {
             buttons.rawValue,
             UInt8(bitPattern: dX),
             UInt8(bitPattern: dY),
-            UInt8(bitPattern: wheel)
+            UInt8(bitPattern: wheel),
+            UInt8(bitPattern: pan)
         ])
+    }
+
+    /// Boot protocol carries only buttons and X/Y, without either scroll axis.
+    var bootData: Data {
+        Data([buttons.rawValue, UInt8(bitPattern: dX), UInt8(bitPattern: dY)])
     }
 }
 

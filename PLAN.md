@@ -26,6 +26,14 @@ problem reproduced at a manual checkpoint, or a later explicitly requested
 capability; document that reason and keep the change narrow. Source observations
 below are not a backlog of fixes to implement automatically.
 
+**Post-checkpoint exception (2026-09-13):** Amadeus reported that horizontal
+trackpad scrolling did not reach Windows and requested support. Capture now
+forwards both scroll axes, and mouse report ID 1 adds signed relative Consumer
+AC Pan (usage 0x0238) as its fifth payload byte. Boot-mouse reports remain three
+bytes. Existing per-event clamping, queue behavior, and vertical scrolling are
+preserved. Windows may need one re-pair to refresh its cached HID descriptor;
+live horizontal/diagonal scrolling validation is pending.
+
 Everything below is based on reading the code plus a research pass whose briefs
 are summarised in "Facts the design rests on". Items marked **unverified** need
 the spike named next to them before anything is built on top of them.

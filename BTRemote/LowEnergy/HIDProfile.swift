@@ -65,10 +65,10 @@ extension ReportID {
     }
 }
 
-/// 239-byte HID report map
+/// HID report map, including vertical and horizontal mouse scrolling.
 extension HIDProfile {
     static let reportMapData = Data([
-        // mouse, Report ID 1 (52 bytes)
+        // mouse, Report ID 1
         0x05, 0x01, // Usage Page (Generic Desktop)
         0x09, 0x02, // Usage (Mouse)
         0xA1, 0x01, // Collection (Application)
@@ -93,6 +93,10 @@ extension HIDProfile {
         0x95, 0x03, //     Report Count (3)
         0x15, 0x81, //     Logical Min (-127)
         0x25, 0x7F, //     Logical Max (127)
+        0x81, 0x06, //     Input (Data,Var,Rel)
+        0x05, 0x0C, //     Usage Page (Consumer)
+        0x0A, 0x38, 0x02, // Usage (AC Pan: horizontal wheel)
+        0x95, 0x01, //     Report Count (1); inherits signed 8-bit range
         0x81, 0x06, //     Input (Data,Var,Rel)
         0xC0, //   End Collection
         0xC0, // End Collection

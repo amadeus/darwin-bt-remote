@@ -49,6 +49,7 @@ final class HIDPeripheral: NSObject, ObservableObject {
     ]
 
     private var pendingBroadcast: (Data, CBMutableCharacteristic)?
+    private var cachedBootMouseReport = MouseReport.zero.bootData
 
     func start() {
         isHIDServiceAllowed = true
@@ -103,6 +104,7 @@ final class HIDPeripheral: NSObject, ObservableObject {
     }
 
     func sendMouse(_ report: MouseReport) {
+        cachedBootMouseReport = report.bootData
         broadcast(report.data, reportID: .mouse)
     }
 
@@ -477,7 +479,7 @@ extension HIDPeripheral: @preconcurrency CBPeripheralManagerDelegate {
         {
             _ = updateValue(cached, for: char)
         } else if characteristic.uuid == HIDProfile.bootMouseInputReport, let bootMouseInputChar {
-            _ = updateValue(MouseReport.zero.data, for: bootMouseInputChar)
+            _ = updateValue(MouseReport.zero.bootData, for: bootMouseInputChar)
         } else if characteristic.uuid == HIDProfile.bootKeyboardInputReport, let bootKeyboardInputChar {
             _ = updateValue(KeyboardReport.zero.data, for: bootKeyboardInputChar)
         } else if characteristic.uuid == HIDProfile.batteryLevel, let batteryLevelChar {
@@ -540,7 +542,7 @@ extension HIDPeripheral: @preconcurrency CBPeripheralManagerDelegate {
                 return cachedReports[id] ?? Data()
             }
             return Data()
-        case HIDProfile.bootMouseInputReport: return cachedReports[ReportID.mouse.rawValue]
+        case HIDProfile.bootMouseInputReport: return cachedBootMouseReport
         case HIDProfile.bootKeyboardInputReport: return cachedReports[ReportID.keyboard.rawValue]
         default: return Data()
         }
