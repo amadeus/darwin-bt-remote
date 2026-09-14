@@ -1061,3 +1061,17 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   Clipboard, Winlogon/elevated-desktop support and signed-out/pre-login testing
   remain pending. This is an implementation checkpoint, not a claim of those
   native runtime checks having passed.
+
+- M3 live follow-up: user reported partial edge-switch success, an intermittent
+  visible/moving Mac cursor and laggy PC movement. In the first focused
+  five-second movement test, capture diagnostics showed the Mac cursor hidden
+  and parked throughout; the return was the requested hotkey. Mac main-thread
+  dispatch peaks were 31–41 ms. An idle process sample showed repeated SwiftUI
+  layout work driven by unchanged coordinator status publications.
+- Avoid publishing unchanged permission, secure-input, target-availability and
+  companion-status values during polling. Preserve the polling frequency and
+  input/HID routing. Signed Mac build, strict lint and all 21 Swift tests pass;
+  a follow-up profile shows reduced idle UI activity. Added aggregate capture
+  timing/cursor-health and return-reason logs without input contents or pointer
+  coordinates. Live post-fix movement/Windows-edge-return verification remains
+  pending; the intermittent cursor report is not considered resolved yet.

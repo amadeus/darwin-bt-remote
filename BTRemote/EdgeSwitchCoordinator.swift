@@ -15,6 +15,7 @@ final class EdgeSwitchCoordinator: ObservableObject {
     private let lowEnergy: HIDPeripheral
     private let central: HIDCentral
     private let cursor = CursorConcealer()
+    private let diagnostics = CaptureDiagnostics()
     private lazy var tap = InputTap { [weak self] event in self?._receive(event) }
     private var timer: Timer?
     private var observers: [NSObjectProtocol] = []
@@ -136,11 +137,12 @@ final class EdgeSwitchCoordinator: ObservableObject {
         tap.requestToggle()
     }
 
-    func returnLocal() {
-        _returnLocal(at: nil)
+    func returnLocal(reason: String = "local request") {
+        _returnLocal(at: nil, reason: reason)
     }
 
-    private func _returnLocal(at point: CGPoint?) {
+    private func _returnLocal(at point: CGPoint?, reason: String) {
+        if isRemote { diagnostics.transition("return: " + reason) }
         if isRemote, let target = captureTarget {
             lowEnergy.companion.send(.exit, payload: Data([switchID]), to: target)
         }
@@ -184,8 +186,10 @@ final class EdgeSwitchCoordinator: ObservableObject {
     }
 
     private func _refresh() {
-        permissionGranted = AccessibilityPermission.isTrusted && CGPreflightPostEventAccess()
-        secureInput = IsSecureEventInputEnabled()
+        let permission = AccessibilityPermission.isTrusted && CGPreflightPostEventAccess()
+        let secure = IsSecureEventInputEnabled()
+        if permissionGranted != permission { permissionGranted = permission }
+        if secureInput != secure { secureInput = secure }
         let candidates = lowEnergy.subscribedCentrals.filter { id, characteristics in
             !lowEnergy.inactiveCentrals.contains(id) && (
                 characteristics.contains(HIDProfile.report) ||
@@ -194,9 +198,15 @@ final class EdgeSwitchCoordinator: ObservableObject {
             )
         }.map(\.key)
         currentTarget = candidates.count == 1 && lowEnergy.state == .poweredOn ? candidates.first : nil
-        targetAvailable = currentTarget != nil
+        let available = currentTarget != nil
+        if targetAvailable != available { targetAvailable = available }
         _refreshCompanion()
-        if isRemote, !permissionGranted || secureInput || captureTarget != currentTarget || geometry == nil { returnLocal() }
+        if isRemote, !permissionGranted || secureInput || captureTarget != currentTarget || geometry == nil {
+            returnLocal(
+                reason: "capture lost: AX=\(permissionGranted) secure=\(secureInput) target=\(captureTarget == currentTarget)"
+            )
+        }
+        if isRemote { diagnostics.sample(parkingPoint: cursor.parkingPoint, companion: lowEnergy.companion.diagnosticState) }
         if permissionGranted, !tapReady, !tapStarting {
             tapStarting = true
             tap.start()
@@ -240,9 +250,12 @@ final class EdgeSwitchCoordinator: ObservableObject {
         if monitors != pcMonitors { pcMonitors = monitors; _configureCompanion() }
         let ready = currentTarget.map { companion.ready.contains($0) } ?? false
         let blind = currentTarget.flatMap { companion.blind[$0] } ?? 4
-        companionStatus = ready && fresh ? (blind == 0 ? "Windows edge return ready" :
+        let status = ready && fresh ? (blind == 0 ? "Windows edge return ready" :
             "Windows edge return unavailable — use the hotkey") : "Waiting for Windows companion"
-        if isRemote, companionCapture, !ready || !fresh { returnLocal() }
+        if companionStatus != status { companionStatus = status }
+        if isRemote, companionCapture, !ready || !fresh {
+            returnLocal(reason: ready ? "companion heartbeat expired" : "companion disconnected")
+        }
     }
 
     private func _configureCompanion() {
@@ -260,7 +273,7 @@ final class EdgeSwitchCoordinator: ObservableObject {
     private func _returnFromPC(target: UUID, switchID: UInt8, edge: UInt8, fraction: UInt16) {
         guard isRemote, !locked, !recordingShortcut, target == captureTarget, switchID == self.switchID,
               edge == self.edge.opposite.wireValue, let geometry, tap.acceptCompanionReturn() else { return }
-        _returnLocal(at: geometry.entryPoint(fraction: fraction))
+        _returnLocal(at: geometry.entryPoint(fraction: fraction), reason: "Windows edge")
     }
 
     private func _receive(_ event: TapOutput) {
@@ -282,6 +295,7 @@ final class EdgeSwitchCoordinator: ObservableObject {
             captureTarget = currentTarget
             directInput.start(HIDInput.make(lowEnergy: lowEnergy, central: central))
             isRemote = true
+            diagnostics.transition("remote capture began")
             switchID &+= 1
             companionCapture = currentTarget.map { lowEnergy.companion.ready.contains($0) } ?? false
             if let target = currentTarget {
@@ -293,13 +307,14 @@ final class EdgeSwitchCoordinator: ObservableObject {
                     UInt8(fraction >> 8)
                 ]), to: target)
             }
-        case let .input(generation, input):
+        case let .input(generation, input, capturedAt):
             guard tap.isCurrent(generation), isRemote else { return }
+            diagnostics.input(capturedAt: capturedAt)
             directInput.handle(input)
         case let .end(generation):
-            if tap.isCurrent(generation) { returnLocal() }
+            if tap.isCurrent(generation) { returnLocal(reason: "toggle hotkey") }
         case .disabled:
-            returnLocal()
+            returnLocal(reason: "event tap disabled")
             tap.reenable()
         }
     }

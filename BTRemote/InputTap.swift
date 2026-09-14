@@ -12,7 +12,7 @@ struct TapConfiguration: Equatable, Sendable {
 enum TapOutput: Sendable {
     case installed(Bool)
     case begin(Int, CGPoint)
-    case input(Int, DirectInputEvent)
+    case input(Int, DirectInputEvent, TimeInterval)
     case end(Int)
     case disabled
 }
@@ -223,7 +223,7 @@ final class InputTap: @unchecked Sendable {
                 }
             }
             if wasRemote, let input = DirectInputEvent(type: type, event: event) {
-                _emit(.input(generation, input))
+                _emit(.input(generation, input, ProcessInfo.processInfo.systemUptime))
             }
             return wasRemote
         }

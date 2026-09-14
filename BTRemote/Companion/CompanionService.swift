@@ -17,6 +17,10 @@ final class CompanionService: ObservableObject {
     private var bulk: [Queued] = []
     private var blocked = false
     private var chars: [CBMutableCharacteristic] = []
+    var diagnosticState: String {
+        "queued=\(controls.count + bulk.count) blocked=\(blocked)"
+    }
+
     private let log = Logger(subsystem: "io.github.jqssun.btremote", category: "Companion")
 
     private struct Client {
@@ -79,6 +83,7 @@ final class CompanionService: ObservableObject {
     }
 
     private func disconnect(_ id: UUID) {
+        if ready.contains(id) { log.notice("companion disconnected") }
         clients.removeValue(forKey: id); ready.remove(id); monitors.removeValue(forKey: id)
         blind.removeValue(forKey: id); lastSeen.removeValue(forKey: id)
         controls.removeAll { $0.central.identifier == id }; bulk.removeAll { $0.central.identifier == id }

@@ -41,7 +41,7 @@ final class CursorSpike {
             let success = cursor.hide(at: point, returningTo: origin)
             _log("hide=\(success) point=\(String(describing: CGEvent(source: nil)?.location))")
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in self?._finish() }
-        case let .input(_, input):
+        case let .input(_, input, _):
             if case .mouseMove = input.kind { motions += 1 }
         case .end, .disabled: _finish()
         }
