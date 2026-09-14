@@ -24,7 +24,6 @@ struct SetupView: View {
 
     private var form: some View {
         Form {
-            guideSection
             connectionSection
             if !lowEnergy.connectedCentrals.isEmpty { connectedDevicesSection }
             statusSection
@@ -45,17 +44,6 @@ struct SetupView: View {
             Button(L10n.Action.notNow, role: .cancel) {}
         } message: {
             Text(L10n.Setup.bluetoothOffMessage)
-        }
-    }
-
-    private var guideSection: some View {
-        Section(header: Text(L10n.Setup.help)) {
-            NavigationLink { GuideView(transport: .lowEnergy) } label: {
-                Label(L10n.Setup.lowEnergyGuide, systemImage: "questionmark.circle")
-            }
-            Link(destination: AppSettings.instructionsURL) {
-                Label(L10n.Setup.videoInstructions, systemImage: "play.circle")
-            }
         }
     }
 

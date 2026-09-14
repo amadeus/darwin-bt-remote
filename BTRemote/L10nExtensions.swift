@@ -53,71 +53,8 @@ extension L10n {
     }
 
     enum Setup {
-        static var help: LocalizedStringKey {
-            "setup.help"
-        }
-
-        static var videoInstructions: LocalizedStringKey {
-            "setup.video_instructions"
-        }
-
         static var activeLegend: LocalizedStringKey {
             "setup.active_legend"
-        }
-
-        static var lowEnergyGuide: LocalizedStringKey {
-            "setup.le_guide"
-        }
-
-        static var connectFromThisApp: LocalizedStringKey {
-            "setup.connect_from_this_app"
-        }
-
-        static var connectFromTargetDevice: LocalizedStringKey {
-            "setup.connect_from_target_device"
-        }
-
-        static var fromApp: LocalizedStringKey {
-            "setup.from_app"
-        }
-
-        static var fromAppStep1: LocalizedStringKey {
-            "setup.from_app_step1"
-        }
-
-        static var fromAppStep2: LocalizedStringKey {
-            "setup.from_app_step2"
-        }
-
-        static var fromDevice: LocalizedStringKey {
-            "setup.from_device"
-        }
-
-        static var fromDeviceStep1: LocalizedStringKey {
-            "setup.from_device_step1"
-        }
-
-        static func fromDeviceStep2(_ name: String) -> String {
-            String.localizedStringWithFormat(
-                String(localized: "setup.from_device_step2"),
-                name
-            )
-        }
-
-        static var fromDeviceStep3: LocalizedStringKey {
-            "setup.from_device_step3"
-        }
-
-        static var troubleshooting: LocalizedStringKey {
-            "setup.troubleshooting"
-        }
-
-        static var iCloudPaired: LocalizedStringKey {
-            "setup.icloud_paired"
-        }
-
-        static var findGuideHint: LocalizedStringKey {
-            "setup.find_guide_hint"
         }
 
         static var deviceNameLimitation: LocalizedStringKey {

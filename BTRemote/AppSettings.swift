@@ -22,5 +22,4 @@ enum AppSettings {
     static let maxAdvertisedNameLength = 26
 
     static let repoURL = URL(string: "https://github.com/jqssun/darwin-bt-remote")!
-    static let instructionsURL = URL(string: "https://github.com/jqssun/darwin-bt-remote/blob/main/README.md")!
 }
