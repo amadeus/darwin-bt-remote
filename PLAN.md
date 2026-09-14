@@ -420,8 +420,8 @@ hotkey is the escape hatch when something on the PC prevents edge-return
 
 1. Companion `LEAVE` (normal path).
 2. **Toggle hotkey**: one combination that focuses the other machine.
-   In `local` it hands control to the PC (ENTER with the PC's remembered exit
-   position, or its current position when there is none); in `remote` it hands
+   In `local` it hands control to the PC and centers the cursor on the selected
+   Windows display (planned M5 behavior, also used by Switch to PC buttons); in `remote` it hands
    control back and warps the Mac cursor to where it was when control left,
    not to an edge (Deskflow's jump-cursor-pos behaviour). Fully user-mapped in
    Layout settings (any key with any modifiers, or disabled). Default:
@@ -830,13 +830,17 @@ M3), and the way back is the toggle hotkey or an automatic release. Rule 8 in
   issue, not automatic changes to the working input path. Any descriptor change
   includes a focused validation and re-pair checkpoint.
 - Double tap, per-edge spans (percent range like Deskflow links),
-  lock-to-screen, remembered exit points on both machines (used by the toggle
-  hotkey and by hotkey re-entry), wake PC display on
+  lock-to-screen, remembered Mac exit point for hotkey return, wake PC display on
   enter (consumer report), toggle-key (Caps/Num) sync using the LED output
   report, first-run flow (Mac permissions → install companion → Connect a Mac
   in the companion → allow input on the Mac → pick edges), launch at login (`SMAppService`, opt-in), companion
   tray states, Windows tray auto-launch after user login (deferred to final
   polish; independent of boot-started service), README rewrite.
+- Explicit **Switch to PC** actions, whether invoked by hotkey or any button/
+  menu action, always place the pointer at the center of the selected Windows
+  display. Edge crossings continue to use proportional placement on the entering
+  edge. This replaces the earlier remembered-PC-position proposal for hotkey
+  entry. Validate both hotkey and button entry with multiple Windows displays.
 - In-app Windows pairing: replace the permanent paired-device dropdown,
   Refresh devices and Use selected Mac controls with **Connect a Mac**.
   Discover nearby candidates, let the user choose the Mac, perform pairing
