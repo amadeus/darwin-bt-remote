@@ -1158,3 +1158,17 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   movement events, versus the baseline 261 ms and 30 fixed-position events.
   The measured quarter-second freeze is removed. The updated signed Mac app
   remains running; no Windows update was needed.
+- Windows inactive-cursor checkpoint: after a matching Mac EXIT, the desktop
+  worker hides the cursor using a temporary one-pixel nonactivating window at
+  its current position. Re-entry reveals it, as do movement/button input from
+  another PC mouse. A short-lived mouse hook reveals before click/wheel routing
+  and never consumes input, so the first local click can reach the underlying
+  application. No cursor-scheme changes, input capture, extra edge delay or
+  service/tray entry points are added.
+- Keep normal EXIT separate from link reset/failure: only an accepted handoff
+  hides the cursor; reset, configuration/display/desktop changes and loss of
+  readiness reveal it. The hiding window and hook belong to the desktop process
+  and disappear when the service stops that process. Existing Mac input/HID
+  code is unchanged. Windows build/publish and all 35 core tests pass; actual
+  Windows hide/reveal, first-click delivery and stop-while-hidden behavior need
+  the live PC check documented in windows/README.md.

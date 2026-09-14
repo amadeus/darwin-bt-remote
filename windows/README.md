@@ -61,6 +61,11 @@ update closes the old companion automatically. Leave the service running and tes
   another Windows display is not an exit; use an exposed part of the edge.
 - Hold a key or mouse button while pushing back: control must stay on Windows.
   Release it, then move into the edge again. No key or button should remain stuck.
+- Return to the Mac: the Windows cursor should disappear. Move or click the
+  PC's own mouse: it should reappear immediately, and the first click should
+  reach the app underneath. Crossing back to Windows also shows the cursor.
+  Stop the service while the cursor is hidden and check that ordinary PC mouse
+  use resumes. The tray window can remain closed throughout.
 - Return using the Mac hotkey, then move the PC's own mouse: no delayed switch
   should occur. Quit the tray and repeat edge switching; it should still work.
 - Restart the Mac app and confirm both HID and companion reconnect without

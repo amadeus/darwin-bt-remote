@@ -146,7 +146,7 @@ internal sealed class BluetoothControl(Action<string> status) : IDisposable
                 else Send(Protocol.Message.EnterAck, [payload[0], 0, 0, 0, 0, 0, 4]);
                 break;
             case Protocol.Message.Exit when payload.Length == 1:
-                if (handoff.Accept(payload[0])) { handoff.Exit(); desktop?.Send(new DesktopMessage("exit")); }
+                if (handoff.Accept(payload[0])) { handoff.Exit(); desktop?.Send(new DesktopMessage("exit", SwitchId: payload[0])); }
                 break;
             default: throw new InvalidDataException("Unsupported companion message");
         }
@@ -226,7 +226,7 @@ internal sealed class BluetoothControl(Action<string> status) : IDisposable
     }
 
     private void SetDetail(string value) { if (Detail != value) { Detail = value; status(value); } }
-    private void Fail(string reason) { NeedsReconnect = true; ready = false; handoff.Exit(); desktop?.Send(new DesktopMessage("exit")); SetDetail(reason); }
+    private void Fail(string reason) { NeedsReconnect = true; ready = false; handoff.Exit(); desktop?.Send(new DesktopMessage("reset")); SetDetail(reason); }
     public void ResetLink()
     {
         generation++;
@@ -235,7 +235,7 @@ internal sealed class BluetoothControl(Action<string> status) : IDisposable
         controlRead = controlWrite = bulkRead = bulkWrite = null;
         controls.Clear(); bulk.Clear(); controlEncoder = new(); bulkEncoder = new(); controlDecoder = new(); bulkDecoder = new();
         ready = subscribing = NeedsReconnect = helloSent = false;
-        config = null; handoff.Exit(); desktop?.Send(new DesktopMessage("exit"));
+        config = null; handoff.Exit(); desktop?.Send(new DesktopMessage("reset"));
     }
     public void Dispose() { ResetLink(); desktop?.Dispose(); desktop = null; }
 }

@@ -14,6 +14,7 @@ internal sealed class DesktopWorker : ApplicationContext
     private readonly Channel<DesktopMessage> output = Channel.CreateBounded<DesktopMessage>(32);
     private readonly System.Windows.Forms.Timer timer = new() { Interval = 1000 };
     private readonly RawWindow window;
+    private readonly InactiveCursor cursor = new();
     private readonly string address;
     private readonly int parent;
     private readonly HandoffSession handoff = new();
@@ -78,6 +79,7 @@ internal sealed class DesktopWorker : ApplicationContext
             screen.Bounds.X, screen.Bounds.Y, screen.Bounds.Width, screen.Bounds.Height, DesktopNative.Dpi(screen.Bounds.X, screen.Bounds.Y), screen.Primary)).ToArray();
         if (!next.SequenceEqual(monitors))
         {
+            cursor.Reveal();
             handoff.Exit(); monitors = next;
             Send(new DesktopMessage("screens", Monitors: monitors));
         }
@@ -99,7 +101,7 @@ internal sealed class DesktopWorker : ApplicationContext
         var state = DesktopNative.DesktopState();
         var accessible = state.Desktop == 0;
         blind = !accessible ? state.Blind : !mouse ? (byte)3 : (byte)0;
-        if (blind != 0) { handoff.Exit(); }
+        if (blind != 0) { cursor.Reveal(); handoff.Exit(); }
         Send(new DesktopMessage("state", Blind: blind, Desktop: state.Desktop, MousePresent: mouse,
             Detail: !accessible ? "Secure desktop; use the Mac hotkey" : !mouse ?
                 "Waiting for the selected Mac's HID mouse" : "Windows edge return ready"));
@@ -110,11 +112,20 @@ internal sealed class DesktopWorker : ApplicationContext
         switch (message.Kind)
         {
             case "config":
+                cursor.Reveal();
                 handoff.Exit();
                 config = message.Config is { Edge: < 4 } ? message.Config : null;
                 break;
-            case "exit": handoff.Exit(); break;
+            case "reset": cursor.Reveal(); handoff.Exit(); break;
+            case "exit":
+                if (handoff.Accept(message.SwitchId))
+                {
+                    handoff.Exit();
+                    if (blind == 0) cursor.Hide();
+                }
+                break;
             case "enter":
+                cursor.Reveal();
                 handoff.Exit();
                 var monitor = monitors.FirstOrDefault(item => item.Id == config?.Monitor);
                 var ok = false;
@@ -134,7 +145,7 @@ internal sealed class DesktopWorker : ApplicationContext
 
     private void RawInput(IntPtr handle)
     {
-        if (handoff.Active is not { } id || config is null || blind != 0) return;
+        if (!cursor.Hidden && (handoff.Active is null || config is null || blind != 0)) return;
         var headerSize = (uint)(8 + IntPtr.Size * 2);
         uint size = 0;
         if (DesktopNative.GetRawInputData(handle, 0x10000003, IntPtr.Zero, ref size, headerSize) == uint.MaxValue ||
@@ -145,11 +156,19 @@ internal sealed class DesktopWorker : ApplicationContext
             if (DesktopNative.GetRawInputData(handle, 0x10000003, buffer, ref size, headerSize) != size ||
                 Marshal.ReadInt32(buffer) != 0) return;
             var device = Marshal.ReadIntPtr(buffer, 8);
-            if (!devices.TryGetValue(device, out var selected) || !selected) return;
+            if (!devices.TryGetValue(device, out var selected))
+                devices[device] = selected = DesktopNative.IsMacMouse(device, address);
             var mouse = buffer + (int)headerSize;
-            if ((Marshal.ReadInt16(mouse) & 1) != 0 || !DesktopNative.GetCursorPos(out var point)) return;
             var dx = Marshal.ReadInt32(mouse, 12);
             var dy = Marshal.ReadInt32(mouse, 16);
+            var buttons = Marshal.ReadInt16(mouse, 4);
+            if (!selected)
+            {
+                if (dx != 0 || dy != 0 || buttons != 0) cursor.Reveal();
+                return;
+            }
+            if (handoff.Active is not { } id || config is null || blind != 0 ||
+                (Marshal.ReadInt16(mouse) & 1) != 0 || !DesktopNative.GetCursorPos(out var point)) return;
             if (dx == 0 && dy == 0) return;
             var monitor = monitors.FirstOrDefault(item => item.Id == config.Monitor);
             if (monitor is null) return;
@@ -168,6 +187,7 @@ internal sealed class DesktopWorker : ApplicationContext
         if (disposing)
         {
             Application.Idle -= Start;
+            cursor.Dispose();
             shutdown.Cancel(); timer.Dispose(); pipe.Dispose(); window.DestroyHandle(); shutdown.Dispose();
         }
         base.Dispose(disposing);
