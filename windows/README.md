@@ -9,10 +9,11 @@ Clipboard sync and Winlogon desktop switching are still pending.
 ## Install and configure
 
 1. Keep the existing Mac pairing and leave BTRemote advertising on the Mac.
-2. Extract the entire ZIP on the PC. Run **Install.cmd** and approve the Windows
-   administrator prompt. No .NET SDK or runtime installation is needed.
-3. Open **BTRemote Companion** from the Windows Start menu. Select the paired Mac
-   and click **Use selected Mac**; approve the configuration change.
+2. Extract the ZIP and open **BTRemote.Companion.exe**. Approve the Windows
+   administrator prompt to install or update; the companion window opens
+   automatically afterward. No scripts or .NET installation are needed.
+3. On first setup, select the paired Mac and click **Use selected Mac**; approve
+   the configuration change. Updates retain your existing selection.
 4. Run the matching new Mac build. In **Layout → Windows**, wait for **Windows
    edge return ready**. Choose the PC display there if its primary display is
    not the one next to your Mac. The PC uses the edge opposite the Mac edge.
@@ -32,7 +33,7 @@ Windows may display its normal unsigned-app reputation prompt for this personal
 build. The archive is built from this repository; no installer downloads or
 third-party servers are used at runtime.
 
-## Tray controls
+## Window and tray controls
 
 - **Start Service:** start now.
 - **Stop Service:** stop companion recovery now. Existing OS HID connections may
@@ -50,8 +51,8 @@ Windows service configuration, not a separate app preference.
 
 ## Signed-in edge checkpoint
 
-Keep the existing pairing; quit the tray and run Install.cmd from this new ZIP
-to update the service. Leave the service running and test:
+Keep the existing pairing and open the EXE from the new ZIP to update. The
+update closes the old companion automatically. Leave the service running and test:
 
 - Cross at roughly the top, middle and bottom of the Mac edge. Placement on the
   selected Windows display should match; return should preserve that fraction.
@@ -81,12 +82,19 @@ mouse movement, clipboard contents or passwords. Logs rotate at 2 MiB with one
 retained file. If status remains **Waiting for the selected Mac's HID mouse**,
 report that status; do not remove the pairing as a first troubleshooting step.
 
-## Remove or update
+## Open or update
 
-Quit the tray before rerunning Install.cmd to update. Existing startup settings,
-device selection and running/stopped state are preserved. Uninstall.cmd stops
-and unregisters the service and removes its Start menu shortcut; pairing,
-configuration, logs and installed files are retained.
+Use **BTRemote Companion** in the Start menu, or open the downloaded EXE again.
+If the tray is already running, its window reopens. An identical EXE opens the
+installed app without reinstalling. A different build updates the installation,
+automatically closes the previous companion, then opens the new window.
+Existing startup settings, device selection and running/stopped state are
+preserved. First installation starts the service with automatic startup enabled.
+The UI runs with the permissions of the user who opened it; only installation
+and service changes request administrator permission.
+
+The repository retains `windows/packaging/Uninstall.cmd` for removing the
+service during development; it is not part of the end-user ZIP.
 
 ## Build
 

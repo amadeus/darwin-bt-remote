@@ -17,6 +17,9 @@ internal static class ServiceCommands
         using var service = new ServiceController(Paths.ServiceName);
         switch (args)
         {
+            case ["--install"]:
+                ServiceInstaller.Install();
+                break;
             case ["--start"]:
                 if (service.Status == ServiceControllerStatus.Stopped) service.Start();
                 service.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(15));
@@ -47,8 +50,12 @@ internal static class ServiceCommands
 
     public static async Task ElevateAsync(params string[] args)
     {
-        if (!File.Exists(Paths.InstalledExe)) throw new InvalidOperationException("Run Install.cmd from the companion package first.");
-        var start = new ProcessStartInfo(Paths.InstalledExe) { UseShellExecute = true, Verb = "runas" };
+        await ElevateExecutableAsync(Paths.InstalledExe, args);
+    }
+
+    public static async Task ElevateExecutableAsync(string executable, params string[] args)
+    {
+        var start = new ProcessStartInfo(executable) { UseShellExecute = true, Verb = "runas" };
         foreach (var argument in args) start.ArgumentList.Add(argument);
         using var process = Process.Start(start) ?? throw new InvalidOperationException("Could not start service operation.");
         await process.WaitForExitAsync();
@@ -58,7 +65,7 @@ internal static class ServiceCommands
     public static string EncodeSettings(CompanionSettings settings) =>
         Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(settings)));
 
-    private static void RunSc(params string[] args)
+    internal static void RunSc(params string[] args)
     {
         var start = new ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "sc.exe"))
         {

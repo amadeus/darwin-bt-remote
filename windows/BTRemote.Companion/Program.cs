@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.ServiceProcess;
 
 namespace BTRemote.Companion;
@@ -34,9 +35,21 @@ internal static class Program
         try
         {
             if (args.Length > 0) return ServiceCommands.Execute(args);
+            if (ServiceInstaller.NeedsInstall())
+            {
+                using var setup = new SetupForm();
+                Application.Run(setup);
+                if (!setup.Installed) return 1;
+            }
+            if (!ServiceInstaller.IsInstalledLocation)
+            {
+                Process.Start(new ProcessStartInfo(Paths.InstalledExe) { UseShellExecute = true });
+                return 0;
+            }
+            using var showSettings = new EventWaitHandle(false, EventResetMode.AutoReset, "Local\\BTRemoteCompanionShowSettings");
             using var singleInstance = new Mutex(true, "Local\\BTRemoteCompanionTray", out var created);
-            if (!created) return 0;
-            using var tray = new TrayContext();
+            if (!created) { showSettings.Set(); return 0; }
+            using var tray = new TrayContext(showSettings);
             Application.Run(tray);
             return 0;
         }

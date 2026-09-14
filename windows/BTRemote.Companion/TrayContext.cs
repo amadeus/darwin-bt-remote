@@ -18,7 +18,7 @@ internal sealed class TrayContext : ApplicationContext
     private SettingsForm? settings;
     private bool busy;
 
-    public TrayContext()
+    public TrayContext(EventWaitHandle showSettings)
     {
         var menu = new ContextMenuStrip();
         menu.Items.Add(statusItem);
@@ -36,7 +36,11 @@ internal sealed class TrayContext : ApplicationContext
         automaticItem.Click += async (_, _) => await ControlAsync("--startup", automaticItem.Checked ? "manual" : "auto");
         icon = new NotifyIcon { Icon = SystemIcons.Application, Text = "BTRemote Companion", ContextMenuStrip = menu, Visible = true };
         icon.DoubleClick += (_, _) => ShowSettings();
-        refresh.Tick += (_, _) => RefreshStatus();
+        refresh.Tick += (_, _) =>
+        {
+            if (showSettings.WaitOne(0)) ShowSettings();
+            RefreshStatus();
+        };
         refresh.Start();
         RefreshStatus();
         ShowSettings();
@@ -64,21 +68,25 @@ internal sealed class TrayContext : ApplicationContext
             automaticItem.Enabled = !busy;
             automaticItem.Checked = service.StartType == ServiceStartMode.Automatic;
             icon.Text = $"BTRemote: {state}";
+            settings?.RefreshControls(state, automaticItem.Checked, busy);
             settings?.RefreshStatus(state.ToString());
         }
         catch (Exception error) when (error is InvalidOperationException or Win32Exception)
         {
-            statusItem.Text = "Service unavailable — run Install.cmd";
+            statusItem.Text = "Service unavailable — reopen BTRemote Companion to repair";
             startItem.Enabled = stopItem.Enabled = automaticItem.Enabled = false;
+            settings?.RefreshControls(null, false, true);
             settings?.RefreshStatus("Not installed or inaccessible");
         }
     }
 
     private void ShowSettings()
     {
-        if (settings is null || settings.IsDisposed) settings = new SettingsForm();
+        if (settings is null || settings.IsDisposed) settings = new SettingsForm(ControlAsync);
         settings.Show();
+        if (settings.WindowState == FormWindowState.Minimized) settings.WindowState = FormWindowState.Normal;
         settings.Activate();
+        RefreshStatus();
     }
 
     private static void OpenDiagnostics()
@@ -111,15 +119,18 @@ internal sealed class SettingsForm : Form
     private readonly Label selected = new() { AutoSize = true, MaximumSize = new Size(460, 0) };
     private readonly Label state = new() { AutoSize = true, MaximumSize = new Size(460, 0) };
     private readonly Label detail = new() { AutoSize = true, MaximumSize = new Size(460, 0) };
+    private readonly Button startService = new() { Text = "Start Service", AutoSize = true };
+    private readonly Button stopService = new() { Text = "Stop Service", AutoSize = true };
+    private readonly CheckBox automatic = new() { Text = "Start automatically with Windows (even when signed out)", AutoSize = true };
     private bool loading;
 
-    public SettingsForm()
+    public SettingsForm(Func<string[], Task> control)
     {
         Text = "BTRemote Companion";
         AutoScaleMode = AutoScaleMode.Dpi;
-        ClientSize = new Size(490, 360);
-        MinimumSize = new Size(480, 360);
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(16), ColumnCount = 1, RowCount = 8 };
+        ClientSize = new Size(530, 460);
+        MinimumSize = new Size(530, 460);
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(16), ColumnCount = 1, RowCount = 10, AutoScroll = true };
         layout.Controls.Add(new Label { Text = "Paired Mac", AutoSize = true });
         layout.Controls.Add(devices);
         var buttons = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill };
@@ -129,9 +140,18 @@ internal sealed class SettingsForm : Form
         layout.Controls.Add(selected);
         layout.Controls.Add(state);
         layout.Controls.Add(detail);
+        var serviceButtons = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0, 12, 0, 0) };
+        serviceButtons.Controls.Add(startService);
+        serviceButtons.Controls.Add(stopService);
+        layout.Controls.Add(serviceButtons);
+        layout.Controls.Add(automatic);
+        startService.Click += async (_, _) => await control(["--start"]);
+        stopService.Click += async (_, _) => await control(["--stop"]);
+        // Click, rather than CheckedChanged: refreshing service state must not write it.
+        automatic.Click += async (_, _) => await control(["--startup", automatic.Checked ? "auto" : "manual"]);
         layout.Controls.Add(new Label
         {
-            Text = "Use the tray menu to start/stop the service and change automatic startup. Closing this window leaves the service running.",
+            Text = "Closing this window leaves the service running. Open BTRemote Companion again or use its tray icon to return here.",
             AutoSize = true,
             MaximumSize = new Size(460, 0),
             Margin = new Padding(0, 16, 0, 0)
@@ -177,6 +197,14 @@ internal sealed class SettingsForm : Form
         catch (Win32Exception error) when (error.NativeErrorCode == 1223) { }
         catch (Exception error) { TrayContext.ShowError(error); }
         finally { if (!IsDisposed) save.Enabled = true; }
+    }
+
+    public void RefreshControls(ServiceControllerStatus? serviceState, bool autoStart, bool busy)
+    {
+        startService.Enabled = !busy && serviceState == ServiceControllerStatus.Stopped;
+        stopService.Enabled = !busy && serviceState == ServiceControllerStatus.Running;
+        automatic.Enabled = !busy && serviceState is not null;
+        automatic.Checked = autoStart;
     }
 
     public void RefreshStatus(string serviceState)

@@ -8,7 +8,6 @@ companion_output=".build/windows/$companion_rid"
 "$companion_dotnet" publish windows/BTRemote.Companion/BTRemote.Companion.csproj \
   -c Release -r "$companion_rid" --self-contained true -p:PublishSingleFile=true \
   -p:EnableCompressionInSingleFile=true -p:DebugType=None -o "$companion_output"
-cp windows/packaging/* "$companion_output/"
 cp windows/README.md "$companion_output/README.md"
 python3 - "$companion_output" <<'PY'
 from pathlib import Path
@@ -17,7 +16,7 @@ root=Path(sys.argv[1])
 archive=root.parent / ('BTRemote-Companion-' + root.name + '.zip')
 with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as z:
     for p in sorted(root.iterdir()):
-        if p.is_file() and p.suffix in {'.exe','.ps1','.cmd','.md'}:
+        if p.name in {'BTRemote.Companion.exe', 'README.md'}:
             z.write(p,p.name)
 print(archive.resolve())
 PY

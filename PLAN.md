@@ -338,8 +338,10 @@ and pre-boot disk-unlock screens are outside the Windows service's lifetime.
   or a secure desktop. Suspend sync while locked/logged out and clear queued
   clipboard payloads on session changes. Keep user clipboard data out of the
   machine-wide service configuration and isolate different users' sessions.
-- Package the service, worker and UI together, with install/start/stop/uninstall
-  scripts for the personal build. The existing HKCU Run-only proposal is
+- Package the service, worker and UI as one EXE. Opening it installs or updates
+  when needed and opens the settings window, with Start/Stop/Automatic controls
+  in both the window and tray. No setup scripts are needed. Updates preserve
+  configuration and service startup/running state. The existing HKCU Run-only proposal is
   superseded; an optional tray startup entry is not responsible for availability.
 
 References: [Microsoft service/desktop isolation](https://learn.microsoft.com/en-us/windows/win32/services/interactive-services),
@@ -1095,3 +1097,18 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   from 31–41 ms peaks to 0–3 ms after eliminating redundant UI publications.
   The Mac cursor stayed hidden and parked. Windows edge return remained
   unavailable because the desktop worker was not starting; hotkey return worked.
+
+- Single-EXE Windows setup: opening the published companion now installs or
+  updates it through an elevated helper, then opens the installed UI under the
+  original user's permissions. Start/Stop and automatic startup are available
+  directly in the window as well as the tray. Reopening an already-running
+  companion restores its settings window. The downloadable ZIP contains only
+  the EXE and README; no setup script or manual tray shutdown is required.
+- Updates stage the replacement before stopping the service, close the prior
+  installed companion, retain a rollback binary until successful completion,
+  and preserve the selected Mac, startup mode and running/stopped state.
+  Privileged installation directories retain administrator/SYSTEM write access
+  and ordinary-user read/execute access. Windows cross-build/publish and all
+  32 core tests pass. Added Windows CI coverage for installation, update with
+  the tray open, service controls, state preservation and window reopening;
+  that native integration check and live UAC/update behavior have not run here.
