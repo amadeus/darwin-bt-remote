@@ -35,8 +35,11 @@ struct BTRemoteApp: App {
         .defaultSize(width: 480, height: 600)
         .windowResizability(.contentSize)
         MenuBarExtra {
-            Text(coordinator.isEnabled ? (coordinator.isRemote ? L10n.Layout.remote : L10n.Layout.local) : "BTRemote is disabled")
-            Text(verbatim: coordinator.companionStatus)
+            Text(verbatim: coordinator.connectionState.label)
+            if coordinator.isEnabled {
+                Text(coordinator.isRemote ? L10n.Layout.remote : L10n.Layout.local)
+                Text(verbatim: coordinator.companionStatus)
+            }
             Text(verbatim: coordinator.shortcutLabel)
             Button(L10n.Layout.openControls) {
                 openWindow(id: "controls")
@@ -52,9 +55,9 @@ struct BTRemoteApp: App {
             }
             Button(L10n.Layout.quit) { NSApp.terminate(nil) }
         } label: {
-            Image(systemName: coordinator.isEnabled ? (coordinator.isRemote ? "keyboard.fill" : "keyboard") : "pause.circle")
-                .accessibilityLabel(coordinator
-                    .isEnabled ? (coordinator.isRemote ? L10n.Layout.remote : L10n.Layout.local) : "BTRemote disabled")
+            Image(systemName: coordinator.connectionState.symbol(isRemote: coordinator.isRemote))
+                .accessibilityLabel(coordinator.connectionState.label)
+                .help(coordinator.connectionState.label)
         }
     }
 }

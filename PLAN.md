@@ -1454,6 +1454,14 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
 - Disable/re-enable serializes tap lifetimes and rejects late readiness events
   from a stopped tap. Bluetooth/input settings and pairings are preserved.
 - See docs/POLISH.md for update instructions, manual checks and validation scope.
+- Mac menu bar reflects searching, connecting, ready, disabled and Bluetooth
+  unavailable states. Ready preserves the existing keyboard/filled-keyboard
+  icons and requires the selected allowed HID target plus a fresh companion
+  handshake. Subscription changes update the icon immediately; the existing
+  refresh timer also detects heartbeat expiry. No input/connection behavior is
+  changed. Manual appearance checks remain deferred until Amadeus is home.
+  Validation: 68 standalone Swift tests, SwiftFormat and strict SwiftLint pass;
+  the updated Mac build is signed. No app launch or computer-use testing.
 - Validation: signed Mac build, 65 Swift tests, strict SwiftLint and SwiftFormat
   pass. Windows solution builds with zero warnings/errors; 79 core tests and
   three disposable-file cleanup tests pass locally. The current win-x64 ZIP

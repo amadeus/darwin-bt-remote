@@ -35,6 +35,7 @@ final class EdgeSwitchCoordinator: ObservableObject {
     }
 
     @Published private(set) var isEnabled = true
+    @Published private(set) var connectionState = StatusBarConnectionState.searching
     @Published private(set) var isRemote = false
     @Published private(set) var targetAvailable = false
     @Published private(set) var keyboardMonitoringReady = false
@@ -75,6 +76,7 @@ final class EdgeSwitchCoordinator: ObservableObject {
         self.central = central
         let defaults = UserDefaults.standard
         isEnabled = defaults.object(forKey: AppSettings.enabledKey) as? Bool ?? true
+        connectionState = isEnabled ? .unavailable : .disabled
         edgeEnabled = defaults.bool(forKey: AppSettings.edgeSwitchEnabledKey)
         displayID = defaults.string(forKey: AppSettings.edgeDisplayUUIDKey) ?? ""
         edge = DisplayEdge(rawValue: defaults.string(forKey: AppSettings.edgeSideKey) ?? "") ?? .right
@@ -105,6 +107,11 @@ final class EdgeSwitchCoordinator: ObservableObject {
         lowEnergy.$hostPolicy.combineLatest(lowEnergy.$state)
             .sink { [weak self] _ in
                 DispatchQueue.main.async { self?._refresh() }
+            }.store(in: &subscriptions)
+        lowEnergy.$subscribedCentrals.map { _ in () }
+            .merge(with: lowEnergy.companion.objectWillChange.map { _ in () })
+            .sink { [weak self] in
+                DispatchQueue.main.async { self?._refreshConnectionState() }
             }.store(in: &subscriptions)
         observers.append(NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
@@ -219,6 +226,7 @@ final class EdgeSwitchCoordinator: ObservableObject {
         let available = currentTarget != nil
         if targetAvailable != available { targetAvailable = available }
         if isEnabled { _refreshCompanion() } else { companionStatus = "BTRemote is disabled" }
+        _refreshConnectionState()
         refreshClipboard()
         if isRemote, !permissionGranted || secureInput || captureTarget != currentTarget || geometry == nil {
             returnLocal(
@@ -239,6 +247,19 @@ final class EdgeSwitchCoordinator: ObservableObject {
             enabled: UserDefaults.standard.object(forKey: AppSettings.clipboardEnabledKey) as? Bool ?? true,
             available: !secureInput
         )
+    }
+
+    private func _refreshConnectionState() {
+        let companion = lowEnergy.companion
+        let state = StatusBarConnectionState.resolve(
+            enabled: isEnabled, bluetooth: lowEnergy.state,
+            link: .init(
+                target: lowEnergy.hostPolicy.target,
+                subscribers: Set(lowEnergy.subscribedCentrals.keys).union(companion.subscribedHosts),
+                companions: companion.ready, lastSeen: companion.lastSeen
+            ), now: ProcessInfo.processInfo.systemUptime
+        )
+        if connectionState != state { connectionState = state }
     }
 
     private func _configure() {

@@ -63,6 +63,7 @@ targets:
       - BTRemote/HandoffState.swift
       - BTRemote/TapRunState.swift
       - BTRemote/HIDHostPolicy.swift
+      - BTRemote/StatusBarConnectionState.swift
       - BTRemote/Companion/CompanionProtocol.swift
       - BTRemote/Clipboard/ClipboardTransfer.swift
       - BTRemote/Clipboard/ClipboardRevision.swift

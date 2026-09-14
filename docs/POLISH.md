@@ -45,6 +45,16 @@ it should remain disabled, retaining the selected/allowed device and layout.
 The existing OS pairing is preserved. macOS/Windows may still show the ordinary
 Bluetooth bond/connection while the app's input and companion traffic are paused.
 
+The Mac menu bar icon now follows connection progress: an antenna while searching,
+two circular arrows while connecting, and the existing keyboard once an allowed
+PC has both HID input subscriptions and a current companion handshake. The ready
+keyboard still fills when controlling Windows. Disabled uses the pause icon;
+unavailable Bluetooth uses a crossed-out antenna. The menu and tooltip name the
+state. A stale companion heartbeat returns the icon to connecting, even if the
+OS still reports Bluetooth connected. Check these states during your normal
+connect/disconnect and enable/disable tests; no Windows update is needed for this
+icon change.
+
 ### Startup
 
 Windows has two independent controls in Settings and the tray menu:

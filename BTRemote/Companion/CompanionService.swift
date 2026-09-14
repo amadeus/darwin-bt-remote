@@ -6,6 +6,7 @@ import os
 final class CompanionService: ObservableObject {
     nonisolated(unsafe) static let uuid = CBUUID(string: "d5df0001-fd35-4b5c-8fc9-39dd1c43cb1d")
     @Published private(set) var ready: Set<UUID> = []
+    @Published private(set) var subscribedHosts: Set<UUID> = []
     @Published private(set) var monitors: [UUID: [PCMonitor]] = [:]
     @Published private(set) var blind: [UUID: UInt8] = [:]
     private(set) var lastSeen: [UUID: TimeInterval] = [:]
@@ -66,12 +67,14 @@ final class CompanionService: ObservableObject {
     func setEnabled(_ value: Bool) {
         enabled = value
         if !value {
+            subscribedHosts.removeAll()
             clients.removeAll(); ready.removeAll(); monitors.removeAll(); blind.removeAll(); lastSeen.removeAll()
             controls.removeAll(); bulk.removeAll()
         }
     }
 
     func reset() {
+        subscribedHosts.removeAll()
         clients.removeAll(); ready.removeAll(); monitors.removeAll(); blind.removeAll(); lastSeen.removeAll()
         controls.removeAll(); bulk.removeAll(); chars.removeAll(); blocked = false; manager = nil
     }
@@ -88,6 +91,7 @@ final class CompanionService: ObservableObject {
         let sendHello = client.subscriptions.contains(0) && client.subscriptions.contains(2) && !client.helloSent
         client.helloSent = client.helloSent || sendHello
         clients[central.identifier] = client
+        if !subscribedHosts.contains(central.identifier) { subscribedHosts.insert(central.identifier) }
         if sendHello {
             sendJSON(CompanionHello(v: 1, role: "mac", name: "BTRemote", chunk: 20, clipboard: 1), type: .hello, to: central.identifier)
         }
@@ -99,6 +103,7 @@ final class CompanionService: ObservableObject {
 
     private func disconnect(_ id: UUID) {
         if ready.contains(id) { log.notice("companion disconnected") }
+        subscribedHosts.remove(id)
         clients.removeValue(forKey: id); ready.remove(id); monitors.removeValue(forKey: id)
         blind.removeValue(forKey: id); lastSeen.removeValue(forKey: id)
         controls.removeAll { $0.central.identifier == id }; bulk.removeAll { $0.central.identifier == id }
