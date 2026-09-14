@@ -16,7 +16,6 @@ internal sealed class DesktopWorker : ApplicationContext
     private readonly RawWindow window;
     private readonly string address;
     private readonly int parent;
-    private readonly EdgeDetector detector = new();
     private readonly HandoffSession handoff = new();
     private readonly Dictionary<IntPtr, bool> devices = [];
     private MonitorInfo[] monitors = [];
@@ -79,7 +78,7 @@ internal sealed class DesktopWorker : ApplicationContext
             screen.Bounds.X, screen.Bounds.Y, screen.Bounds.Width, screen.Bounds.Height, DesktopNative.Dpi(screen.Bounds.X, screen.Bounds.Y), screen.Primary)).ToArray();
         if (!next.SequenceEqual(monitors))
         {
-            handoff.Exit(); detector.Reset(); monitors = next;
+            handoff.Exit(); monitors = next;
             Send(new DesktopMessage("screens", Monitors: monitors));
         }
         uint count = 0;
@@ -100,7 +99,7 @@ internal sealed class DesktopWorker : ApplicationContext
         var state = DesktopNative.DesktopState();
         var accessible = state.Desktop == 0;
         blind = !accessible ? state.Blind : !mouse ? (byte)3 : (byte)0;
-        if (blind != 0) { handoff.Exit(); detector.Reset(); }
+        if (blind != 0) { handoff.Exit(); }
         Send(new DesktopMessage("state", Blind: blind, Desktop: state.Desktop, MousePresent: mouse,
             Detail: !accessible ? "Secure desktop; use the Mac hotkey" : !mouse ?
                 "Waiting for the selected Mac's HID mouse" : "Windows edge return ready"));
@@ -111,12 +110,12 @@ internal sealed class DesktopWorker : ApplicationContext
         switch (message.Kind)
         {
             case "config":
-                handoff.Exit(); detector.Reset();
-                config = message.Config is { Edge: < 4, PushCounts: >= 0 and <= 1000 } ? message.Config : null;
+                handoff.Exit();
+                config = message.Config is { Edge: < 4 } ? message.Config : null;
                 break;
-            case "exit": handoff.Exit(); detector.Reset(); break;
+            case "exit": handoff.Exit(); break;
             case "enter":
-                handoff.Exit(); detector.Reset();
+                handoff.Exit();
                 var monitor = monitors.FirstOrDefault(item => item.Id == config?.Monitor);
                 var ok = false;
                 var position = new DesktopNative.Point();
@@ -157,7 +156,7 @@ internal sealed class DesktopWorker : ApplicationContext
             var held = new[] { 1, 2, 4, 5, 6 }.Any(key => DesktopNative.GetAsyncKeyState(key) < 0);
             var clipped = !DesktopNative.GetClipCursor(out var clip) || clip.Left > monitor.X || clip.Top > monitor.Y ||
                 clip.Right < monitor.X + monitor.W || clip.Bottom < monitor.Y + monitor.H;
-            if (detector.Observe(monitor, monitors, config, point.X, point.Y, dx, dy, held, clipped))
+            if (EdgeDetector.Observe(monitor, monitors, config, point.X, point.Y, dx, dy, held, clipped))
                 Send(new DesktopMessage("leave", SwitchId: id, Edge: config.Edge,
                     Fraction: monitor.Fraction(config.Edge, point.X, point.Y)));
         }

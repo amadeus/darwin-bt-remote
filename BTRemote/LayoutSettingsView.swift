@@ -27,11 +27,6 @@ struct LayoutSettingsView: View {
                     ForEach(DisplayEdge.allCases) { edge in Text(edge.label).tag(edge) }
                 }
                 HStack {
-                    Text(L10n.Layout.delay)
-                    Slider(value: $coordinator.switchDelay, in: 0 ... 1000, step: 50)
-                    Text(L10n.Layout.milliseconds(Int(coordinator.switchDelay))).monospacedDigit().frame(width: 70)
-                }
-                HStack {
                     Text(L10n.Layout.corners)
                     Slider(value: $coordinator.cornerSize, in: 0 ... 100, step: 5)
                     Text(coordinator.cornerSize, format: .number).monospacedDigit().frame(width: 40)

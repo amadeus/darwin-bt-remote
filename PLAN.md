@@ -85,9 +85,10 @@ tests for anything pure (protocol framing against `docs/protocol-vectors.json`,
 edge geometry, key map). When a spike or checkpoint contradicts this document,
 update the document in the same commit.
 
-**Tunables.** These numbers are placeholders to tune by feel in M2/M3, not
-researched values: `pushCounts` 12, `switchDelayMs` 250, `doubleTapMs` 0 (off),
-`cornerPx` 0 (off), heartbeat 3 s with 3 misses,
+**Edge behavior.** Switch immediately on edge arrival with outward movement.
+No dwell, extra push threshold or double tap. Legacy wire fields `pushCounts`,
+`switchDelayMs` and `doubleTapMs` remain zero for compatibility.
+Other defaults: `cornerPx` 0 (off), heartbeat 3 s with 3 misses,
 parking point = center of the configured display. Keep them in
 `AppSettings` defaults so tuning is a one-line change.
 
@@ -160,8 +161,8 @@ parking point = center of the configured display. Keep them in
    Windows connects out. TLS-PSK is not usable (Apple: TLS 1.2 only; .NET:
    none), so pin a self-signed cert instead.
 9. **Prior-art UX to match** (Deskflow `Server::isSwitchOkay`, Across, Mouse
-   Without Borders): 1-px jump zone, optional switch delay (250 ms), optional
-   double tap, corner exclusion (mask + size), lock-to-screen toggle,
+   Without Borders): 1-px jump zone with immediate switching,
+   corner exclusion (mask + size), lock-to-screen toggle,
    jump/return hotkeys, entry point = proportional position along the shared
    edge (`mapToFraction`), inset 1–3 px so it does not immediately re-trigger,
    release all keys on leave, clipboard pushed on switch when dirty and
@@ -531,8 +532,8 @@ actually unavailable. Validate these semantics in the M3 desktop-transition spik
 ```json
 HELLO        {"v":1,"role":"mac"|"pc","name":"Mac Studio","chunk":244}
 SCREEN_INFO  {"monitors":[{"id":"\\\\.\\DISPLAY1","x":0,"y":0,"w":2560,"h":1440,"dpi":96,"primary":true}]}
-CONFIG       {"edge":1,"monitor":"\\\\.\\DISPLAY1","span":[0.0,1.0],"pushCounts":12,
-              "switchDelayMs":250,"doubleTapMs":0,"cornerPx":0,"clipboard":true,"heartbeatS":3}
+CONFIG       {"edge":1,"monitor":"\\\\.\\DISPLAY1","span":[0.0,1.0],"pushCounts":0,
+              "switchDelayMs":0,"doubleTapMs":0,"cornerPx":0,"clipboard":true,"heartbeatS":3}
 ```
 
 - Each side sends HELLO once after the PC subscribes to `ctrl` and `bulk`;
@@ -543,9 +544,9 @@ CONFIG       {"edge":1,"monitor":"\\\\.\\DISPLAY1","span":[0.0,1.0],"pushCounts"
   in CONFIG is the `id` from SCREEN_INFO (`MONITORINFOEX.szDevice`).
 - `span` is the fraction range of the PC edge that maps onto the Mac edge
   (Deskflow link interval); v1 UI exposes `[0,1]` only.
-- `pushCounts` is the summed raw-input delta into the edge required before
-  LEAVE fires (device counts, so independent of Windows pointer speed); `0`
-  means fire on arrival.
+- `pushCounts` and `switchDelayMs` are legacy compatibility fields sent as zero.
+  Windows ignores older nonzero values and sends LEAVE on the first outward
+  movement at the exposed edge; no accumulation or dwell gate.
 
 **Flow control.** Mac→PC companion traffic: FIFO with ctrl before bulk (§3.1),
 drained until empty or `updateValue` returns `false`. Preserve the existing HID
@@ -695,7 +696,7 @@ target → signing → CI. iOS first because it turns the Classic deletion in
 | Spike         | What to build                                                                                                                                                                                                                                                                                                                                          | Pass                                                                                                                                                                                                                                                                                                                                      |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | S1 (U1)       | Tiny unsandboxed app, another app frontmost: first Deskflow's `CGSSetConnectionProperty("SetsCursorInBackground")` + `CGDisplayHideCursor` + `CGAssociate(false)`; then the public fallbacks (`NSCursor.hide()` alone, `.screenSaver` non-activating `NSPanel` + re-hide timer, warp-parking). Test over the Dock and a full-screen Space on macOS 26. | At least one strategy hides and freezes the cursor reliably; record which, it becomes the default in `CursorConcealer`. Also: confirm the local return hotkey restores the cursor and association while another app is frontmost; confirm Fn+Escape arrives in the tap as `keyDown` keycode 53 with `.maskSecondaryFn` (else pick another default). |
-| S2 (U2)       | 20-line listen-only tap logging location + deltas while pushing against an outer edge.                                                                                                                                                                                                                                                                 | Deltas keep arriving while pinned. If not: trigger on arrival + switch delay only (Deskflow behaviour).                                                                                                                                                                                                                                   |
+| S2 (U2)       | 20-line listen-only tap logging location + deltas while pushing against an outer edge.                                                                                                                                                                                                                                                                 | Deltas keep arriving while pinned. If not: trigger on arrival without a dwell delay.                                                                                                                                                                                                                                   |
 | S3 (U3, MTU)  | Add the custom service after HID in `HIDPeripheral`. On a PC that bonded _before_: does Settings/Device Manager show the new "Bluetooth LE Generic Attribute Service" node without re-pairing? .NET console app: open service, subscribe, write, log `GattSession.MaxPduSize`; Mac logs `maximumUpdateValueLength` in `didSubscribeTo`.                | Companion can subscribe and write while HID keeps working. Record whether existing bonds need a re-pair.                                                                                                                                                                                                                                  |
 | S4 (U6, §2.4) | Console app with Raw Input + `GetCursorPos`, driven by the Mac's HID mouse: confirm deltas at the clamped edge, coalescing rate, `RIDI_DEVICENAME` string.                                                                                                                                                                                             | Pinned-plus-push condition is detectable; device string known.                                                                                                                                                                                                                                                                            |
 | S5 (U5)       | `SetCursorPos` from the console app while Task Manager is foreground; and while locked.                                                                                                                                                                                                                                                                | Know which blind states need reporting.                                                                                                                                                                                                                                                                                                   |
@@ -733,10 +734,10 @@ M3), and the way back is the toggle hotkey or an automatic release. Rule 8 in
 - `MenuBarExtra` (icon reflects local/remote/blind), `Settings` scene hosting
   the existing tabs plus a first `LayoutSettingsView`: pick display
   (`NSScreen.screens`, persisted by display UUID), pick edge, enable toggle,
-  switch delay, return hotkey. `AppSettings` keys: `edgeSwitchEnabled`,
-  `edgeDisplayUUID`, `edgeSide`, `switchDelayMs`, `switchDoubleTap`,
+  return hotkey. `AppSettings` keys: `edgeSwitchEnabled`,
+  `edgeDisplayUUID`, `edgeSide`,
   `cornerSizePx`, `toggleHotkey`, `clipboardSync`.
-- Switch gates: arrival + outward delta, switch delay, corner exclusion, no
+- Switch gates: arrival + outward delta, corner exclusion, no
   switch while any physical key, modifier or mouse button is down,
   lock-to-screen toggle. Apply the release-before-switch rules from §3.2 to
   edge, hotkey and manual handoffs; preserve the existing HID translation.
@@ -754,7 +755,7 @@ M3), and the way back is the toggle hotkey or an automatic release. Rule 8 in
 - **M2 is an iteration loop, not a gate to rush through.** Expect several
   rounds of checkpoint → bug fix or tunable change → rebuild → checkpoint
   before M3 starts. Functional bugs and feel problems found here (push
-  threshold, switch delay, hotkey choice, what happens at corners, how the
+  behavior, hotkey choice, what happens at corners, how the
   cursor lands on return) are cheapest to fix now, and M3 only adds the PC-side
   half on top of this behaviour.
 - **Manual checkpoint M2:** (a) push past the edge, drive the PC, confirm no
@@ -1112,3 +1113,18 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   32 core tests pass. Added Windows CI coverage for installation, update with
   the tray open, service controls, state preservation and window reopening;
   that native integration check and live UAC/update behavior have not run here.
+
+- User correction: edge switching must have no intentional delay. Removed the
+  Windows 12-count outward-push accumulator; the first outward event at the
+  exposed edge now requests return, including when an older Mac sends a
+  nonzero threshold. Removed the Mac 250 ms dwell, its UI slider and saved
+  preference reads. Normal Mac edge arrival begins capture in the motion
+  callback. Only a handoff blocked by held keys/buttons waits for their release
+  to finish routing to the old machine. Legacy wire delay/threshold fields
+  are zero. Historical dwell descriptions above record the superseded behavior.
+- Validation: signed Mac build and 21 Swift tests pass; strict lint has zero
+  violations. Windows publish and 35 tests pass, including one-count arrival
+  on every edge, held/blocked/inward guards and legacy nonzero CONFIG values.
+  The updated Mac app is running and its Layout view no longer has a delay
+  slider. The Windows package is ready; perceived round-trip responsiveness
+  still needs the user to try the updated builds on the physical machines.

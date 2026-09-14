@@ -1,3 +1,4 @@
+using System.Text.Json;
 using BTRemote.Companion.Core;
 using Xunit;
 
@@ -16,31 +17,34 @@ public sealed class EdgeControlTests
         Assert.Equal((x, y), Monitor.Entry(edge, 32768));
         Assert.InRange(Math.Abs(Monitor.Fraction(edge, x, y) - 32768), 0, 40);
     }
-    [Fact]
-    public void ReturnRequiresFreshOutwardPushAndResetsOnHeldInput()
+    [Theory]
+    [InlineData(0, -1920, 300, -1, 0)]
+    [InlineData(1, -1, 300, 1, 0)]
+    [InlineData(2, -900, -200, 0, -1)]
+    [InlineData(3, -900, 879, 0, 1)]
+    public void FirstOutwardCountAtAnyEdgeReturnsImmediately(byte edge, int x, int y, int dx, int dy)
     {
-        var detector = new EdgeDetector();
-        var config = new EdgeConfiguration(1, Monitor.Id);
-        bool Move(int dx, bool held = false, bool blocked = false) =>
-            detector.Observe(Monitor, [Monitor], config, -1, 300, dx, 0, held, blocked);
-        Assert.False(Move(8));
-        Assert.False(Move(8, held: true));
-        Assert.False(Move(8));
-        Assert.True(Move(4));
-        Assert.False(Move(8));
-        Assert.False(Move(-1));
-        Assert.False(Move(8));
-        Assert.False(Move(20, blocked: true));
-        Assert.False(Move(8));
-        Assert.True(Move(4));
+        // Legacy Mac settings must not restore a threshold or dwell on Windows.
+        var config = JsonSerializer.Deserialize<EdgeConfiguration>(
+            $$"""{"edge":{{edge}},"monitor":"left","pushCounts":12,"switchDelayMs":250}""",
+            new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        bool Move(int moveX, int moveY, bool held = false, bool blocked = false) =>
+            EdgeDetector.Observe(Monitor, [Monitor], config, x, y, moveX, moveY, held, blocked);
+        Assert.True(Move(dx, dy));
+        Assert.False(Move(dx, dy, held: true));
+        Assert.True(Move(dx, dy));
+        Assert.False(Move(dx, dy, blocked: true));
+        Assert.False(Move(-dx, -dy));
+        Assert.False(Move(0, 0));
+        Assert.True(Move(dx, dy));
+        Assert.False(EdgeDetector.Observe(Monitor, [Monitor], config, -900, 300, dx, dy, false, false));
     }
     [Fact]
     public void SharedMonitorBorderCannotReturn()
     {
         var other = new MonitorInfo("right", 0, 0, 1920, 1080, 96, true);
-        var detector = new EdgeDetector();
-        Assert.False(detector.Observe(Monitor, [Monitor, other], new(1, Monitor.Id), -1, 300, 40, 0, false, false));
-        Assert.True(detector.Observe(Monitor, [Monitor, other], new(1, Monitor.Id), -1, -100, 40, 0, false, false));
+        Assert.False(EdgeDetector.Observe(Monitor, [Monitor, other], new(1, Monitor.Id), -1, 300, 40, 0, false, false));
+        Assert.True(EdgeDetector.Observe(Monitor, [Monitor, other], new(1, Monitor.Id), -1, -100, 40, 0, false, false));
     }
     [Fact]
     public void ExitAndReplacementInvalidateOldHandoff()

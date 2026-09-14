@@ -127,7 +127,8 @@ struct PCConfiguration: Codable, Equatable {
     let edge: UInt8
     let monitor: String
     var span: [Double] = [0, 1]
-    var pushCounts = 12
+    // send zero for compatibility with companions that still read the old threshold
+    var pushCounts = 0
     var switchDelayMs = 0
     var doubleTapMs = 0
     var cornerPx = 0

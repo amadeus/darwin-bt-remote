@@ -20,17 +20,15 @@ public sealed record MonitorInfo(string Id, int X, int Y, int W, int H, int Dpi,
         edge < 2 ? (y - Y) / (double)(H - 1) : (x - X) / (double)(W - 1), 0, 1));
 }
 
-public sealed record EdgeConfiguration(byte Edge, string Monitor, int PushCounts = 12);
+public sealed record EdgeConfiguration(byte Edge, string Monitor);
 public sealed record DesktopMessage(string Kind, EdgeConfiguration? Config = null, byte SwitchId = 0,
     byte Edge = 0, ushort Fraction = 0, MonitorInfo[]? Monitors = null,
     byte Blind = 4, byte Desktop = 2, bool MousePresent = false, bool Ok = false, int X = 0, int Y = 0, string? Detail = null);
 
 // Only fresh outward counts from the selected Mac mouse can trigger a return.
-public sealed class EdgeDetector
+public static class EdgeDetector
 {
-    private long push;
-    public void Reset() => push = 0;
-    public bool Observe(MonitorInfo monitor, IReadOnlyList<MonitorInfo> monitors, EdgeConfiguration config,
+    public static bool Observe(MonitorInfo monitor, IReadOnlyList<MonitorInfo> monitors, EdgeConfiguration config,
         int x, int y, int dx, int dy, bool held, bool blocked)
     {
         var outward = config.Edge switch { 0 => -(long)dx, 1 => dx, 2 => -(long)dy, 3 => dy, _ => 0 };
@@ -51,10 +49,7 @@ public sealed class EdgeDetector
         };
         if (held || blocked || !pinned || outward <= 0 ||
             monitors.Any(other => other.Id != monitor.Id && other.Contains(outside.Item1, outside.Item2)))
-        { Reset(); return false; }
-        push += outward;
-        if (push < Math.Max(1, config.PushCounts)) return false;
-        Reset();
+            return false;
         return true;
     }
 }

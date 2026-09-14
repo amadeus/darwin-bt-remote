@@ -51,10 +51,6 @@ final class EdgeSwitchCoordinator: ObservableObject {
         didSet { _save() }
     }
 
-    @Published var switchDelay = AppSettings.defaultSwitchDelay {
-        didSet { _save() }
-    }
-
     @Published var cornerSize = AppSettings.defaultCornerSize {
         didSet { _save() }
     }
@@ -78,7 +74,6 @@ final class EdgeSwitchCoordinator: ObservableObject {
         edgeEnabled = defaults.bool(forKey: AppSettings.edgeSwitchEnabledKey)
         displayID = defaults.string(forKey: AppSettings.edgeDisplayUUIDKey) ?? ""
         edge = DisplayEdge(rawValue: defaults.string(forKey: AppSettings.edgeSideKey) ?? "") ?? .right
-        switchDelay = defaults.object(forKey: AppSettings.switchDelayMsKey) as? Double ?? AppSettings.defaultSwitchDelay
         cornerSize = defaults.object(forKey: AppSettings.cornerSizePxKey) as? Double ?? AppSettings.defaultCornerSize
         shortcut = ToggleShortcut(
             keyCode: UInt16(clamping: defaults.object(forKey: AppSettings.toggleKeyCodeKey) as? Int ?? 53),
@@ -219,7 +214,6 @@ final class EdgeSwitchCoordinator: ObservableObject {
             targetAvailable: targetAvailable && permissionGranted && !secureInput,
             edgeEnabled: edgeEnabled && !locked && !recordingShortcut,
             geometry: geometry,
-            delay: max(0, switchDelay) / 1000,
             shortcut: recordingShortcut ? ToggleShortcut(enabled: false) : shortcut
         ))
     }
@@ -233,7 +227,6 @@ final class EdgeSwitchCoordinator: ObservableObject {
         defaults.set(edgeEnabled, forKey: AppSettings.edgeSwitchEnabledKey)
         defaults.set(displayID, forKey: AppSettings.edgeDisplayUUIDKey)
         defaults.set(edge.rawValue, forKey: AppSettings.edgeSideKey)
-        defaults.set(switchDelay, forKey: AppSettings.switchDelayMsKey)
         defaults.set(cornerSize, forKey: AppSettings.cornerSizePxKey)
         defaults.set(Int(shortcut.keyCode), forKey: AppSettings.toggleKeyCodeKey)
         defaults.set(Int(shortcut.modifiers), forKey: AppSettings.toggleModifiersKey)

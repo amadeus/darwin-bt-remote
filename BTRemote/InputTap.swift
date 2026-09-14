@@ -5,7 +5,6 @@ struct TapConfiguration: Equatable, Sendable {
     var targetAvailable = false
     var edgeEnabled = false
     var geometry: EdgeGeometry?
-    var delay: Double = 0.25
     var shortcut = ToggleShortcut()
 }
 
@@ -24,7 +23,7 @@ final class InputTap: @unchecked Sendable {
     private var handoff = HandoffState()
     private var remote = false
     private var generation = 0
-    private var edgeSince: TimeInterval?
+    private var edgeArmed = false
     private var location = CGPoint.zero
     private var dropNextMotion = false
     private var eventTap: CFMachPort?
@@ -40,7 +39,7 @@ final class InputTap: @unchecked Sendable {
         lock.withLock {
             guard configuration != value else { return }
             configuration = value
-            edgeSince = nil
+            edgeArmed = false
             handoff.cancel()
         }
     }
@@ -81,7 +80,7 @@ final class InputTap: @unchecked Sendable {
             remote = false
             generation += 1
             handoff.cancel()
-            edgeSince = nil
+            edgeArmed = false
             dropNextMotion = true
             return true
         }
@@ -92,7 +91,7 @@ final class InputTap: @unchecked Sendable {
             remote = false
             generation += 1
             handoff.cancel()
-            edgeSince = nil
+            edgeArmed = false
             dropNextMotion = true
         }
     }
@@ -160,9 +159,8 @@ final class InputTap: @unchecked Sendable {
                 return
             }
             guard !remote, configuration.targetAvailable, configuration.edgeEnabled,
-                  let geometry = configuration.geometry, let edgeSince,
-                  geometry.isAtEdge(location), handoff.isReleased,
-                  ProcessInfo.processInfo.systemUptime - edgeSince >= configuration.delay else { return }
+                  let geometry = configuration.geometry, edgeArmed,
+                  geometry.isAtEdge(location), handoff.isReleased else { return }
             _begin(fromEdge: true)
         }
     }
@@ -171,7 +169,7 @@ final class InputTap: @unchecked Sendable {
         guard let geometry = configuration.geometry else { return }
         remote = true
         generation += 1
-        edgeSince = nil
+        edgeArmed = false
         dropNextMotion = true
         // placement and panel ownership stay on the main actor; input is already suppressed here
         _emit(.begin(generation, fromEdge ? geometry.inset(location) : location))
@@ -179,7 +177,7 @@ final class InputTap: @unchecked Sendable {
 
     private func _end() {
         remote = false
-        edgeSince = nil
+        edgeArmed = false
         dropNextMotion = true
         _emit(.end(generation))
     }
@@ -189,7 +187,7 @@ final class InputTap: @unchecked Sendable {
             if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
                 remote = false
                 generation += 1
-                edgeSince = nil
+                edgeArmed = false
                 handoff.cancel()
                 _emit(.disabled)
                 return false
@@ -213,7 +211,7 @@ final class InputTap: @unchecked Sendable {
                 location = event.location
                 if motion, dropNextMotion {
                     dropNextMotion = false
-                    edgeSince = nil
+                    edgeArmed = false
                 } else if motion { _checkEdge(event) }
             } else if motion {
                 if let point = configuration.geometry?.parkingPoint { CGWarpMouseCursorPosition(point) }
@@ -241,15 +239,14 @@ final class InputTap: @unchecked Sendable {
         guard configuration.edgeEnabled, configuration.targetAvailable,
               let geometry = configuration.geometry, geometry.isAtEdge(location)
         else {
-            edgeSince = nil
+            edgeArmed = false
             return
         }
         let dx = event.getIntegerValueField(.mouseEventDeltaX)
         let dy = event.getIntegerValueField(.mouseEventDeltaY)
-        // arrival plus dwell also works on systems that stop reporting outward deltas at the edge
-        if geometry.isOutward(dx: dx, dy: dy) || (dx == 0 && dy == 0) {
-            if edgeSince == nil { edgeSince = ProcessInfo.processInfo.systemUptime }
-        } else { edgeSince = nil }
+        // switch during this motion callback; only held-input release needs the timer
+        edgeArmed = geometry.isOutward(dx: dx, dy: dy) || (dx == 0 && dy == 0)
+        if edgeArmed, handoff.isReleased { _begin(fromEdge: true) }
     }
 
     private static let callback: CGEventTapCallBack = { _, type, event, userInfo in

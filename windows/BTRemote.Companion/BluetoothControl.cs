@@ -130,7 +130,7 @@ internal sealed class BluetoothControl(Action<string> status) : IDisposable
             case Protocol.Message.Pong when payload.Length == 4: break;
             case Protocol.Message.Config:
                 var next = JsonSerializer.Deserialize<EdgeConfiguration>(payload, Json);
-                if (next is not { Edge: < 4, PushCounts: >= 0 and <= 1000 } ||
+                if (next is not { Edge: < 4 } ||
                     !monitors.Any(item => item.Id == next.Monitor)) throw new InvalidDataException("Unknown Windows display");
                 if (config != next)
                 {

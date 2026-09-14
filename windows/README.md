@@ -18,8 +18,8 @@ Clipboard sync and Winlogon desktop switching are still pending.
    edge return ready**. Choose the PC display there if its primary display is
    not the one next to your Mac. The PC uses the edge opposite the Mac edge.
 5. Cross the Mac edge; the Windows pointer should appear at the matching
-   position along its edge. Push back against that Windows edge to return to
-   the Mac. Release held keys/buttons before pushing back. The Mac hotkey still
+   position along its edge. Move back to that Windows edge to return to
+   the Mac. Release held keys/buttons before crossing back. The Mac hotkey still
    returns immediately after its own keys are released.
 
 The service runs as LocalSystem, including before login and after sign-out. Its
@@ -56,10 +56,11 @@ update closes the old companion automatically. Leave the service running and tes
 
 - Cross at roughly the top, middle and bottom of the Mac edge. Placement on the
   selected Windows display should match; return should preserve that fraction.
-- Push against the corresponding Windows edge to return. A shared border with
+- Reach the corresponding Windows edge to return immediately; no dwell or
+  extra push is required. A shared border with
   another Windows display is not an exit; use an exposed part of the edge.
 - Hold a key or mouse button while pushing back: control must stay on Windows.
-  Release it, then push again. No key or button should remain stuck.
+  Release it, then move into the edge again. No key or button should remain stuck.
 - Return using the Mac hotkey, then move the PC's own mouse: no delayed switch
   should occur. Quit the tray and repeat edge switching; it should still work.
 - Restart the Mac app and confirm both HID and companion reconnect without

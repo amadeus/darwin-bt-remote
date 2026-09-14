@@ -42,10 +42,6 @@ extension L10n {
             "layout.edge"
         }
 
-        static var delay: LocalizedStringKey {
-            "layout.delay"
-        }
-
         static var corners: LocalizedStringKey {
             "layout.corners"
         }
@@ -124,10 +120,6 @@ extension L10n {
 
         static func keyCodeString(_ code: UInt16) -> String {
             String(format: String(localized: "layout.key_code"), Int(code))
-        }
-
-        static func milliseconds(_ value: Int) -> String {
-            String(format: String(localized: "layout.milliseconds"), value)
         }
     }
 }
