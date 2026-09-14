@@ -54,6 +54,7 @@ targets:
       - BTRemote/EdgeGeometry.swift
       - BTRemote/ReturnMotionProbe.swift
       - BTRemote/HandoffState.swift
+      - BTRemote/HIDHostPolicy.swift
       - BTRemote/Companion/CompanionProtocol.swift
     settings:
       base:

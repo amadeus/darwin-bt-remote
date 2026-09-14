@@ -1187,3 +1187,23 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   another build/restart and repeated successful returns are logged. Late display
   configuration is suspected, not yet proven. Investigate reconnect readiness
   separately; the cursor-window change does not alter the companion protocol.
+- Allowed-device checkpoint: Setup now saves an explicit Allow input list.
+  New subscribers start unapproved; saved devices remain manageable offline.
+  Select one ready allowed device for input, retain that target when another
+  device arrives, and expose Use device for an explicit switch between ready
+  allowed devices. Revoking permission returns control locally before changing
+  recipients. Input notifications go only to the selected target, and other
+  hosts reading input reports receive neutral state rather than cached input.
+- Advertising is automatic: advertise while no allowed host has both mouse and
+  keyboard subscriptions; stop once one is ready, and resume when none remains.
+  Track mouse/keyboard report identities separately because all report
+  characteristics share UUID 0x2A4D. Battery/media-only subscriptions cannot
+  make a host ready. This controls BTRemote advertising/input delivery; it does
+  not remove OS Bluetooth bonds or prevent macOS from accepting other links.
+- Validation: signed Mac build, strict lint and all 27 Swift tests pass. Policy
+  regressions cover unknown hosts, partial subscriptions, target retention,
+  explicit switching, revocation and disconnect/fallback. Live UI checks showed
+  Maingear permission off -> Advertising Yes, on -> Advertising No. After an
+  app restart, Maingear remained allowed, reconnected without re-pairing and
+  advertising stopped automatically. Windows code and HID report map are
+  unchanged; final physical edge-switch confirmation is pending.

@@ -1151,7 +1151,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pair from Windows Bluetooth Settings. Keep only your PC active in Setup."
+            "value": "Pair from Windows Bluetooth Settings, then enable Allow input for your PC in Setup."
           }
         }
       }
@@ -1162,7 +1162,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Waiting for one active PC subscribed to keyboard/mouse input."
+            "value": "Waiting for an allowed PC with keyboard and mouse input ready."
           }
         }
       }

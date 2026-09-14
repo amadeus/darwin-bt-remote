@@ -7,12 +7,16 @@ import SwiftUI
 @MainActor
 final class HIDPeripheral: NSObject, ObservableObject {
     @Published private(set) var state: CBManagerState = .unknown
-    @Published private(set) var isAdvertising = false
+    @Published var isAdvertising = false
     @Published private(set) var isHIDServiceAdded = false
     /// central identifier: the set of characteristic UUIDs it is currently subscribed to
     @Published private(set) var subscribedCentrals: [UUID: Set<CBUUID>] = [:]
-    /// broadcasts skip inactive hosts
-    @Published private(set) var inactiveCentrals: Set<UUID> = []
+    @Published private(set) var hostPolicy = HIDHostPolicy(allowed: Set(
+        (UserDefaults.standard.stringArray(forKey: AppSettings.allowedHostsKey) ?? []).compactMap(UUID.init(uuidString:))
+    ))
+    var onTargetWillChange: (() -> Void)?
+    var inputSubscriptions: [UUID: Set<HIDHostPolicy.Input>] = [:]
+    var advertisingStarting = false
     @Published private(set) var connectedCentrals: Set<UUID> = []
     @Published private(set) var keyboardLEDs: KeyboardLEDs = []
     @Published private(set) var lastError: String?
@@ -20,19 +24,19 @@ final class HIDPeripheral: NSObject, ObservableObject {
     let companion = CompanionService()
     private let batteryLevel: UInt8 = 100
 
-    private var centralObjects: [UUID: CBCentral] = [:]
+    var centralObjects: [UUID: CBCentral] = [:]
 
     var advertiseLocalName: String = UserDefaults.standard.string(forKey: AppSettings.advertisedNameKey) ?? L10n.Bluetooth.advertisedName
 
     private let log = Logger(subsystem: "io.github.jqssun.btremote", category: "HIDPeripheral")
-    private var pManager: CBPeripheralManager?
+    var pManager: CBPeripheralManager?
     private var batteryServiceObj: CBMutableService?
     private var deviceInfoServiceObj: CBMutableService?
     private var hidServiceObj: CBMutableService?
-    private var isHIDServiceAllowed = false
+    var isHIDServiceAllowed = false
     private var isReadyToSendNotification = true
 
-    private var charsByReportID: [UInt8: CBMutableCharacteristic] = [:]
+    var charsByReportID: [UInt8: CBMutableCharacteristic] = [:]
     private var bootMouseInputChar: CBMutableCharacteristic?
     private var bootKeyboardInputChar: CBMutableCharacteristic?
     private var bootKeyboardOutputChar: CBMutableCharacteristic?
@@ -42,12 +46,7 @@ final class HIDPeripheral: NSObject, ObservableObject {
     private static let serviceChangedGrace: UInt64 = 2_000_000_000
 
     /// last-sent payloads for reads and new subscriptions
-    private var cachedReports: [UInt8: Data] = [
-        ReportID.mouse.rawValue: MouseReport.zero.data,
-        ReportID.keyboard.rawValue: KeyboardReport.zero.data,
-        ReportID.systemControl.rawValue: SystemControlReport.zero.data,
-        ReportID.consumerControl.rawValue: ConsumerReport.zero.data
-    ]
+    private var cachedReports = HIDPeripheral.emptyReports
 
     private var pendingBroadcast: (Data, CBMutableCharacteristic)?
     private var cachedBootMouseReport = MouseReport.zero.bootData
@@ -62,7 +61,7 @@ final class HIDPeripheral: NSObject, ObservableObject {
             )
         } else if state == .poweredOn {
             if isHIDServiceAdded {
-                startAdvertisingNow()
+                reconcileAdvertising()
             } else {
                 installServices()
             }
@@ -71,6 +70,7 @@ final class HIDPeripheral: NSObject, ObservableObject {
 
     func stop() {
         isHIDServiceAllowed = false
+        advertisingStarting = false
         pManager?.stopAdvertising()
         isAdvertising = false
     }
@@ -84,6 +84,7 @@ final class HIDPeripheral: NSObject, ObservableObject {
     private func _resetForRestart() {
         pManager?.stopAdvertising()
         pManager = nil
+        advertisingStarting = false
         isAdvertising = false
         isHIDServiceAdded = false
         isReadyToSendNotification = true
@@ -100,7 +101,8 @@ final class HIDPeripheral: NSObject, ObservableObject {
         bootKeyboardOutputChar = nil
         charsByReportID.removeAll()
         subscribedCentrals.removeAll()
-        inactiveCentrals.removeAll()
+        inputSubscriptions.removeAll()
+        reconcileHosts()
         connectedCentrals.removeAll()
         centralObjects.removeAll()
     }
@@ -124,12 +126,17 @@ final class HIDPeripheral: NSObject, ObservableObject {
         broadcast(report.data, reportID: .systemControl)
     }
 
-    func toggleActive(_ uuid: UUID) {
-        if inactiveCentrals.contains(uuid) {
-            inactiveCentrals.remove(uuid)
-        } else {
-            inactiveCentrals.insert(uuid)
+    func apply(_ policy: HIDHostPolicy) {
+        if policy.target != hostPolicy.target {
+            // Release on the old destination before changing recipients.
+            onTargetWillChange?()
+            pendingBroadcast = nil
+            cachedReports = Self.emptyReports
+            cachedBootMouseReport = MouseReport.zero.bootData
+            keyboardLEDs = []
         }
+        if policy != hostPolicy { hostPolicy = policy }
+        reconcileAdvertising()
     }
 
     /// if host connects but never subscribes (stale GATT cache), cycle a temp service to fire Service Changed so it re-discovers
@@ -341,15 +348,6 @@ final class HIDPeripheral: NSObject, ObservableObject {
         return char
     }
 
-    private func startAdvertisingNow() {
-        guard let pManager, !isAdvertising else { return }
-        pManager.startAdvertising([
-            CBAdvertisementDataLocalNameKey: advertiseLocalName,
-            // hidService must stay first if more than one service is being advertised
-            CBAdvertisementDataServiceUUIDsKey: [HIDProfile.hidService]
-        ])
-    }
-
     private func broadcast(_ data: Data, reportID: ReportID) {
         cachedReports[reportID.rawValue] = data
         guard let char = charsByReportID[reportID.rawValue] else { return }
@@ -397,29 +395,6 @@ final class HIDPeripheral: NSObject, ObservableObject {
         connectedCentrals.insert(central.identifier)
         _trace("central tracked: \(central.identifier)")
     }
-
-    private func activeRecipients() -> [CBCentral] {
-        subscribedCentrals.keys
-            .filter { !inactiveCentrals.contains($0) }
-            .compactMap { centralObjects[$0] }
-    }
-
-    private func reportID(forCharacteristic char: CBCharacteristic) -> UInt8? {
-        for (id, c) in charsByReportID where c.uuid == char.uuid && c === char as AnyObject {
-            return id
-        }
-        // fallback for restored characteristics
-        if char.uuid == HIDProfile.report,
-           let descriptor = (char as? CBMutableCharacteristic)?
-           .descriptors?
-           .first(where: { $0.uuid == HIDProfile.reportReference }),
-           let value = descriptor.value as? Data,
-           let id = value.first
-        {
-            return id
-        }
-        return nil
-    }
 }
 
 extension HIDPeripheral: @preconcurrency CBPeripheralManagerDelegate {
@@ -430,8 +405,13 @@ extension HIDPeripheral: @preconcurrency CBPeripheralManagerDelegate {
             installServices()
         }
         if peripheral.state != .poweredOn {
+            advertisingStarting = false
             isAdvertising = false
-        }
+            inputSubscriptions.removeAll()
+            subscribedCentrals.removeAll()
+            connectedCentrals.removeAll()
+            reconcileHosts()
+        } else { reconcileAdvertising() }
     }
 
     func peripheralManager(_ peripheral: CBPeripheralManager, didAdd service: CBService, error: Error?) {
@@ -453,13 +433,14 @@ extension HIDPeripheral: @preconcurrency CBPeripheralManagerDelegate {
             isHIDServiceAdded = true
             peripheral.add(companion.build(peripheral))
         case CompanionService.uuid:
-            startAdvertisingNow()
+            reconcileAdvertising()
         default:
             break
         }
     }
 
     func peripheralManagerDidStartAdvertising(_ peripheral: CBPeripheralManager, error: Error?) {
+        advertisingStarting = false
         if let error {
             isAdvertising = false
             lastError = error.localizedDescription
@@ -467,6 +448,7 @@ extension HIDPeripheral: @preconcurrency CBPeripheralManagerDelegate {
         } else {
             isAdvertising = true
             _trace("advertising as \(advertiseLocalName)")
+            reconcileAdvertising()
         }
     }
 
@@ -479,6 +461,11 @@ extension HIDPeripheral: @preconcurrency CBPeripheralManagerDelegate {
         _trackInteraction(from: central)
         subscribedCentrals[central.identifier, default: []].insert(characteristic.uuid)
         _trace("subscribe: \(central.identifier) -> \(characteristic.uuid)")
+        if let input = inputKind(characteristic) {
+            inputSubscriptions[central.identifier, default: []].insert(input)
+        }
+        reconcileHosts()
+        guard central.identifier == hostPolicy.target else { return }
         if let id = reportID(forCharacteristic: characteristic),
            let cached = cachedReports[id],
            let char = charsByReportID[id]
@@ -500,12 +487,23 @@ extension HIDPeripheral: @preconcurrency CBPeripheralManagerDelegate {
     ) {
         if companion.owns(characteristic) { companion.unsubscribed(central); return }
         _trace("unsubscribe: \(central.identifier) <- \(characteristic.uuid)")
+        if let input = inputKind(characteristic) {
+            inputSubscriptions[central.identifier]?.remove(input)
+        }
+        reconcileHosts()
         guard var chars = subscribedCentrals[central.identifier] else { return }
-        chars.remove(characteristic.uuid)
+        // Several report characteristics share 0x2A4D. Retain the summary while
+        // this central still subscribes to another input report.
+        if characteristic.uuid != HIDProfile.report ||
+            !(inputSubscriptions[central.identifier]?.contains(.mouse) == true ||
+                inputSubscriptions[central.identifier]?.contains(.keyboard) == true)
+        {
+            chars.remove(characteristic.uuid)
+        }
         if chars.isEmpty {
             subscribedCentrals.removeValue(forKey: central.identifier)
             centralObjects.removeValue(forKey: central.identifier)
-            inactiveCentrals.remove(central.identifier)
+            inputSubscriptions.removeValue(forKey: central.identifier)
             connectedCentrals.remove(central.identifier)
             serviceChangedArmed = false
         } else {
@@ -538,6 +536,7 @@ extension HIDPeripheral: @preconcurrency CBPeripheralManagerDelegate {
     }
 
     private func readValue(forRequest request: CBATTRequest) -> Data? {
+        let reports = request.central.identifier == hostPolicy.target ? cachedReports : Self.emptyReports
         switch request.characteristic.uuid {
         case HIDProfile.batteryLevel: return Data([batteryLevel])
         case HIDProfile.hidInformation: return HIDProfile.hidInformationValue
@@ -548,11 +547,12 @@ extension HIDPeripheral: @preconcurrency CBPeripheralManagerDelegate {
         case HIDProfile.pnpID: return HIDProfile.pnpIDValue
         case HIDProfile.report:
             if let id = reportID(forCharacteristic: request.characteristic) {
-                return cachedReports[id] ?? Data()
+                return reports[id] ?? Data()
             }
             return Data()
-        case HIDProfile.bootMouseInputReport: return cachedBootMouseReport
-        case HIDProfile.bootKeyboardInputReport: return cachedReports[ReportID.keyboard.rawValue]
+        case HIDProfile.bootMouseInputReport:
+            return request.central.identifier == hostPolicy.target ? cachedBootMouseReport : MouseReport.zero.bootData
+        case HIDProfile.bootKeyboardInputReport: return reports[ReportID.keyboard.rawValue]
         default: return Data()
         }
     }
@@ -578,7 +578,7 @@ extension HIDPeripheral: @preconcurrency CBPeripheralManagerDelegate {
     }
 
     private func handleWriteRequest(_ request: CBATTRequest) {
-        guard let value = request.value else { return }
+        guard request.central.identifier == hostPolicy.target, let value = request.value else { return }
         switch request.characteristic.uuid {
         case HIDProfile.bootKeyboardOutputReport:
             if let byte = value.first { keyboardLEDs = KeyboardLEDs(byte: byte) }

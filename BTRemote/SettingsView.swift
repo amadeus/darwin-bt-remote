@@ -48,6 +48,7 @@ struct SettingsView: View {
     }
 
     private func _resetAll() {
+        lowEnergy.clearAllowedHosts()
         names.clear()
         if let bundleID = Bundle.main.bundleIdentifier {
             UserDefaults.standard.removePersistentDomain(forName: bundleID)

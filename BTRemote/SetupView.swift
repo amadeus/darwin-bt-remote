@@ -9,7 +9,6 @@ struct SetupView: View {
     @AppStorage(AppSettings.developerModeKey) private var developerMode = false
     @AppStorage(AppSettings.advertisedNameKey) private var advertisedName = L10n.Bluetooth.advertisedName
     @State private var selectedInfo: DeviceEntry?
-    @State private var showBluetoothOff = false
     @EnvironmentObject private var coordinator: EdgeSwitchCoordinator
 
     @Environment(\.hid) private var hid
@@ -25,7 +24,7 @@ struct SetupView: View {
     private var form: some View {
         Form {
             connectionSection
-            if !lowEnergy.connectedCentrals.isEmpty { connectedDevicesSection }
+            if !_connectedDevices.isEmpty { connectedDevicesSection }
             statusSection
             if hid.activeError != nil || (hid.isActive && coordinator.lastError != nil) {
                 Section(header: Text(L10n.Section.lastError)) {
@@ -39,12 +38,6 @@ struct SetupView: View {
             }
         }
         .sheet(item: $selectedInfo) { DeviceInfoView(entry: $0) }
-        .alert(L10n.Setup.bluetoothOffTitle, isPresented: $showBluetoothOff) {
-            Button(L10n.Action.settings) { _openBluetoothSettings() }
-            Button(L10n.Action.notNow, role: .cancel) {}
-        } message: {
-            Text(L10n.Setup.bluetoothOffMessage)
-        }
     }
 
     private var statusSection: some View {
@@ -90,21 +83,19 @@ struct SetupView: View {
     }
 
     private var connectionSection: some View {
-        Section(header: Text(L10n.Section.connection), footer: Text(L10n.Setup.deviceNameLimitation)) {
-            if lowEnergy.isAdvertising {
-                Button(role: .destructive) { lowEnergy.stop() } label: {
-                    Label(L10n.Action.stopAdvertising, systemImage: "stop.circle")
-                }
+        Section(
+            header: Text(L10n.Section.connection),
+            footer: Text("Advertising stops when an allowed device is ready and resumes when none is available.")
+        ) {
+            if lowEnergy.state != .poweredOn {
+                Button("Open Bluetooth Settings", action: _openBluetoothSettings)
             } else {
-                Button { _startAdvertising() } label: {
-                    Label(L10n.Action.startAdvertising, systemImage: "antenna.radiowaves.left.and.right")
-                }
+                Text(lowEnergy.hostPolicy.target == nil ? "Waiting for an allowed device" : "Connected to an allowed device")
             }
-            NavigationLink {
-                DeviceListView()
-            } label: {
-                Label(L10n.Section.devices, systemImage: "dot.radiowaves.left.and.right")
-            }
+            Text(
+                "Pair from Windows, then enable Allow input below. To replace the PC, turn off Allow input for the current device first."
+            )
+            .font(.caption).foregroundColor(.secondary)
         }
         .onAppear(perform: _seedAliasesFromScan)
         .onChange(of: lowEnergy.connectedCentrals) { _ in _seedAliasesFromScan() }
@@ -114,14 +105,18 @@ struct SetupView: View {
     private var connectedDevicesSection: some View {
         Section {
             ForEach(_connectedDevices) { connectedDeviceRow($0) }
+        } header: {
+            Text("Devices")
         } footer: {
-            Text(L10n.Setup.activeLegend)
+            Text(
+                "Allow input is saved for each device. When several allowed devices are ready, use Use device to choose where input goes."
+            )
         }
     }
 
     /// hosts that connected to us (peripheral role); subscribed ones can receive input
     private var _connectedDevices: [DeviceEntry] {
-        lowEnergy.connectedCentrals
+        lowEnergy.connectedCentrals.union(lowEnergy.hostPolicy.allowed)
             .map { uuid in
                 let alias = names.name(for: uuid)
                 let subscribed = lowEnergy.subscribedCentrals.keys.contains(uuid)
@@ -134,11 +129,11 @@ struct SetupView: View {
                     companyID: nil,
                     txPower: nil,
                     isConnectable: nil,
-                    isHostConnected: true,
+                    isHostConnected: lowEnergy.connectedCentrals.contains(uuid),
                     isCentralConnected: false,
                     isConnecting: false,
                     isSubscribed: subscribed,
-                    isActive: subscribed && !lowEnergy.inactiveCentrals.contains(uuid)
+                    isActive: lowEnergy.hostPolicy.target == uuid
                 )
             }
             .sorted { $0.id.uuidString < $1.id.uuidString }
@@ -151,25 +146,41 @@ struct SetupView: View {
         }
     }
 
-    private func _startAdvertising() {
-        if lowEnergy.state == .poweredOn {
-            lowEnergy.start()
-            return
-        }
-        showBluetoothOff = true
-    }
-
     private func _openBluetoothSettings() {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.systempreferences") else { return }
         NSWorkspace.shared.open(url)
     }
 
     private func connectedDeviceRow(_ entry: DeviceEntry) -> some View {
-        ConnectedDeviceRow(
-            entry: entry,
-            onToggle: { lowEnergy.toggleActive(entry.id) },
-            onInfo: { selectedInfo = entry }
-        )
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(verbatim: entry.displayName)
+                Text(_deviceStatus(entry)).font(.caption).foregroundColor(.secondary)
+                if developerMode {
+                    Text(verbatim: entry.id.uuidString).font(.caption2).foregroundColor(.secondary)
+                }
+            }
+            Spacer()
+            if lowEnergy.hostPolicy.allowed.contains(entry.id), lowEnergy.hostPolicy.ready.contains(entry.id), !entry.isActive {
+                Button("Use device") { lowEnergy.selectHost(entry.id) }
+            }
+            Toggle("Allow input", isOn: Binding(
+                get: { lowEnergy.hostPolicy.allowed.contains(entry.id) },
+                set: { lowEnergy.setAllowed(entry.id, $0) }
+            ))
+            .fixedSize()
+            .accessibilityLabel(Text("Allow input: \(entry.displayName)"))
+            Button { selectedInfo = entry } label: { Image(systemName: "info.circle") }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(L10n.DeviceInfo.info)
+        }
+    }
+
+    private func _deviceStatus(_ entry: DeviceEntry) -> String {
+        if entry.isActive { return "Current input device" }
+        if !entry.isHostConnected { return "Disconnected" }
+        if lowEnergy.hostPolicy.ready.contains(entry.id) { return "Ready" }
+        return "Waiting for keyboard and mouse"
     }
 
     private func row(_ title: LocalizedStringKey, _ value: Text) -> some View {

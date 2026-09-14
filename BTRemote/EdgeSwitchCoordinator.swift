@@ -92,9 +92,10 @@ final class EdgeSwitchCoordinator: ObservableObject {
             self?._returnFromPC(target: target, switchID: switchID, edge: edge, fraction: fraction)
         }
         _refreshDisplays()
+        lowEnergy.onTargetWillChange = { [weak self] in self?.returnLocal(reason: "input target changed") }
         lowEnergy.start()
         central.start()
-        lowEnergy.$subscribedCentrals.combineLatest(lowEnergy.$inactiveCentrals, lowEnergy.$state)
+        lowEnergy.$hostPolicy.combineLatest(lowEnergy.$state)
             .sink { [weak self] _ in
                 DispatchQueue.main.async { self?._refresh() }
             }.store(in: &subscriptions)
@@ -191,14 +192,7 @@ final class EdgeSwitchCoordinator: ObservableObject {
         let secure = IsSecureEventInputEnabled()
         if permissionGranted != permission { permissionGranted = permission }
         if secureInput != secure { secureInput = secure }
-        let candidates = lowEnergy.subscribedCentrals.filter { id, characteristics in
-            !lowEnergy.inactiveCentrals.contains(id) && (
-                characteristics.contains(HIDProfile.report) ||
-                    (characteristics.contains(HIDProfile.bootMouseInputReport) && characteristics
-                        .contains(HIDProfile.bootKeyboardInputReport))
-            )
-        }.map(\.key)
-        currentTarget = candidates.count == 1 && lowEnergy.state == .poweredOn ? candidates.first : nil
+        currentTarget = lowEnergy.state == .poweredOn ? lowEnergy.hostPolicy.target : nil
         let available = currentTarget != nil
         if targetAvailable != available { targetAvailable = available }
         _refreshCompanion()

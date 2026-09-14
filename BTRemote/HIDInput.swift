@@ -26,7 +26,7 @@ extension HIDInput {
             sendKeyboard: { lowEnergy.sendKeyboard($0) },
             sendConsumer: { lowEnergy.sendConsumer($0) },
             isActive: lowEnergy.isHIDServiceAdded,
-            isConnected: lowEnergy.connectedCentrals.contains { !lowEnergy.inactiveCentrals.contains($0) } || !central.connected.isEmpty,
+            isConnected: lowEnergy.hostPolicy.target != nil,
             activeError: lowEnergy.lastError ?? central.lastError
         )
     }
