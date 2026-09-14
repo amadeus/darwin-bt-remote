@@ -2,14 +2,6 @@ import SwiftUI
 
 extension L10n {
     enum DirectInput {
-        static var section: LocalizedStringKey {
-            "section.direct_input"
-        }
-
-        static var toggle: LocalizedStringKey {
-            "direct_input.toggle"
-        }
-
         static var releaseHint: LocalizedStringKey {
             "direct_input.release_hint"
         }

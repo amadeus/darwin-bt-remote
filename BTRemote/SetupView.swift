@@ -28,12 +28,14 @@ struct SetupView: View {
             connectionSection
             if !lowEnergy.connectedCentrals.isEmpty { connectedDevicesSection }
             statusSection
-            if hid.isActive {
-                directInputSection
-            }
-            if let lastError = hid.activeError {
+            if hid.activeError != nil || (hid.isActive && coordinator.lastError != nil) {
                 Section(header: Text(L10n.Section.lastError)) {
-                    Text(verbatim: lastError).foregroundColor(.red).font(.caption)
+                    if let lastError = hid.activeError {
+                        Text(verbatim: lastError).foregroundColor(.red).font(.caption)
+                    }
+                    if hid.isActive, let lastError = coordinator.lastError {
+                        Text(verbatim: lastError).foregroundColor(.red).font(.caption)
+                    }
                 }
             }
         }
@@ -180,23 +182,6 @@ struct SetupView: View {
             onToggle: { lowEnergy.toggleActive(entry.id) },
             onInfo: { selectedInfo = entry }
         )
-    }
-
-    private var directInputSection: some View {
-        Section(header: Text(L10n.DirectInput.section), footer: Text(L10n.Layout.releaseHint)) {
-            Toggle(isOn: directInputBinding) {
-                Label(L10n.DirectInput.toggle, systemImage: "rectangle.and.hand.point.up.left")
-            }
-            if let lastError = coordinator.lastError {
-                Text(verbatim: lastError)
-                    .font(.caption)
-                    .foregroundColor(.red)
-            }
-        }
-    }
-
-    private var directInputBinding: Binding<Bool> {
-        Binding(get: { coordinator.isRemote }, set: { _ in coordinator.toggle() })
     }
 
     private func row(_ title: LocalizedStringKey, _ value: Text) -> some View {

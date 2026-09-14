@@ -562,17 +562,6 @@
         }
       }
     },
-    "direct_input.toggle": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Direct Input"
-          }
-        }
-      }
-    },
     "error.device_not_paired": {
       "extractionState": "manual",
       "localizations": {
@@ -1229,17 +1218,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Devices"
-          }
-        }
-      }
-    },
-    "section.direct_input": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Direct Input"
           }
         }
       }
