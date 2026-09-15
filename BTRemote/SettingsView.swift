@@ -62,9 +62,6 @@ struct SettingsView: View {
             }
             Section(header: Text(L10n.Settings.advanced)) {
                 Toggle(L10n.Settings.developerMode, isOn: $developerMode)
-                Link(destination: AppSettings.repoURL) {
-                    Label(L10n.Settings.sourceCode, systemImage: "chevron.left.forwardslash.chevron.right")
-                }
             }
             resetSection
         }
