@@ -8,6 +8,7 @@ extension View {
             formStyle(.grouped)
                 .contentMargins(.horizontal, 0, for: .scrollContent)
                 .contentMargins(.horizontal, 10, for: .scrollIndicators)
+                .contentMargins(.bottom, 10, for: .scrollIndicators)
                 // Expand the viewport, not its scrollable content, to reduce
                 // the native 20-point grouped inset without horizontal overflow.
                 .padding(.horizontal, -10)
