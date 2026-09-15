@@ -1118,7 +1118,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pair from Windows Bluetooth Settings, then enable Allow input for your PC in Setup."
+            "value": "Pair through the Windows companion, then turn on Enable control for your PC in Setup."
           }
         }
       }

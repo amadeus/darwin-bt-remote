@@ -21,7 +21,7 @@ independent of the clipboard feature.
    it open. Click **Connect a Mac…** in the companion, choose your Mac and approve
    any Windows/Mac pairing prompts. Keep DeusKVM enabled on the Mac; it advertises
    when no allowed PC is ready. The companion verifies DeusKVM before saving.
-   Allow input for this PC on the Mac if needed. Updates retain your selection;
+   Turn on **Enable control** for this PC on the Mac if needed. Updates retain your selection;
    use **Change Mac…** to select a different Mac or reuse an existing pairing.
    The picker searches both regular Bluetooth and Bluetooth LE. After pairing,
    it verifies the selected Mac's LE services and saves that endpoint for the

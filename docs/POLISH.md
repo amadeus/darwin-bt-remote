@@ -87,7 +87,7 @@ use **Connect a Mac…**, choose the Mac and approve Windows'
 pairing prompt and any Mac prompt. Enable DeusKVM on the Mac; it must advertise
 when no allowed PC is ready. Other nearby Bluetooth devices may appear in the
 picker, so choose your Mac. The app verifies the HID and DeusKVM services before
-saving. On the Mac, enable **Allow input** for the PC if it is not already allowed.
+saving. On the Mac, turn on **Enable control** for the PC if it is not already allowed.
 Windows Bluetooth Settings should not be required for this normal flow.
 The picker shows computers and the previously verified Mac by default. **Show
 all devices** reveals other categories and devices whose category is unknown,

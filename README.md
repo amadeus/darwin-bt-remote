@@ -25,7 +25,7 @@ BLE. No LAN connection is required.
    Mac. Choose **Connect a Mac…** in the Windows companion and approve the
    pairing prompts. Choose your Mac's computer name. If it is missing, try
    **Show all devices**. Windows Bluetooth Settings is not needed for this flow.
-4. In the Mac's **Setup** tab, enable **Allow input** for your PC. Advertising
+4. In the Mac's **Setup** tab, turn on **Enable control** for your PC. Advertising
    stops when an allowed PC is ready and resumes when none is available.
 5. In **Layout**, choose the Mac display and exit edge, enable edge switching,
    and select the Windows display. Wait for **Windows edge return ready**.

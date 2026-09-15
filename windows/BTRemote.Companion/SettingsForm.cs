@@ -51,7 +51,7 @@ internal sealed class SettingsForm : Form
             selected.Text = saved is null ? "No Mac connected" : $"Mac: {saved.DeviceName}";
             connect.Text = saved is null ? "Connect a Mac…" : "Change Mac…";
             state.Text = $"Service: {serviceState}";
-            if (saved is null) { detail.Text = "Connect your Mac here, then enable Allow input in DeusKVM on the Mac."; return; }
+            if (saved is null) { detail.Text = "Connect your Mac here, then turn on Enable control in DeusKVM on the Mac."; return; }
             var snapshot = JsonFiles.Read<ServiceSnapshot>(Paths.Status);
             if (serviceState != "Running" || snapshot is null) { detail.Text = "Bluetooth recovery is not running."; return; }
             if (!ServicePolicy.IsFresh(snapshot.UpdatedAt, DateTimeOffset.UtcNow)) { detail.Text = "Waiting for a fresh service status…"; return; }

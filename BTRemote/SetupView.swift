@@ -63,7 +63,7 @@ struct SetupView: View {
                 Text(lowEnergy.hostPolicy.target == nil ? "Waiting for an allowed device" : "Connected to an allowed device")
             }
             Text(
-                "Pair from Windows, then enable Allow input below. To replace the PC, turn off Allow input for the current device first."
+                "Pair through the Windows companion, then turn on Enable control below. To replace the PC, turn off Enable control for the current device first."
             )
             .font(.caption).foregroundColor(.secondary)
         }
@@ -79,7 +79,7 @@ struct SetupView: View {
             Text("Devices")
         } footer: {
             Text(
-                "Allow input is saved for each device. When several allowed devices are ready, use Use device to choose where input goes."
+                "This setting is saved for each device. When several enabled devices are ready, choose Use device to select the PC to control."
             )
         }
     }
@@ -137,12 +137,12 @@ struct SetupView: View {
                     .buttonStyle(.borderless)
                     .accessibilityLabel(L10n.DeviceInfo.info)
             }
-            Toggle("Allow input", isOn: Binding(
+            Toggle("Enable control", isOn: Binding(
                 get: { lowEnergy.hostPolicy.allowed.contains(entry.id) },
                 set: { lowEnergy.setAllowed(entry.id, $0) }
             ))
             .toggleStyle(.switch)
-            .accessibilityLabel(Text("Allow input: \(entry.displayName)"))
+            .accessibilityLabel(Text("Enable control: \(entry.displayName)"))
             if lowEnergy.hostPolicy.allowed.contains(entry.id), lowEnergy.hostPolicy.ready.contains(entry.id), !entry.isActive {
                 Button("Use device") { lowEnergy.selectHost(entry.id) }
             }
