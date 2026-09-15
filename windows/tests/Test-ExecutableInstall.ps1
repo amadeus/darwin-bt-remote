@@ -83,6 +83,26 @@ function Wait-CompanionWindow {
     } while ($timer.ElapsedMilliseconds -lt $TimeoutMilliseconds)
     throw "Settings window did not reach visible=$Visible (PID $($Process.Id), handle $handle)."
 }
+function Wait-SingleCompanionTray {
+    param([int] $ExpectedId, [int] $TimeoutMilliseconds = 10000)
+    $timer = [Diagnostics.Stopwatch]::StartNew()
+    do {
+        # The downloaded launcher exits after starting an installed process.
+        # That child still has to initialize, signal the existing tray, and exit.
+        # Require the original tray to survive; do not accept a replacement UI.
+        $processes = @(Get-Process -Name 'DeusKVM.Companion' -ErrorAction SilentlyContinue)
+        $trays = @($processes | Where-Object { $_.Path -eq $binary })
+        if ($trays.Count -eq 1 -and $trays[0].Id -eq $ExpectedId) {
+            foreach ($process in $processes) { if ($process.Id -ne $ExpectedId) { $process.Dispose() } }
+            return $trays[0]
+        }
+        $ids = @($trays | ForEach-Object { $_.Id }) -join ', '
+        foreach ($process in $processes) { $process.Dispose() }
+        if ($timer.ElapsedMilliseconds -ge $TimeoutMilliseconds) { break }
+        Start-Sleep -Milliseconds 50
+    } while ($true)
+    throw "Expected only the original installed tray (PID $ExpectedId) after handoff; found PIDs: [$ids]."
+}
 $failure = $null
 $cleanupErrors = [Collections.Generic.List[string]]::new()
 try {
@@ -131,6 +151,7 @@ try {
     # An identical downloaded EXE should just open the installed window; no install.
     Write-Host 'Checking quiet tray startup before downloaded EXE handoff.'
     $quietTray = Start-CompanionProcess $binary @('--tray')
+    $quietTrayId = $quietTray.Id
     try {
         if (-not $quietTray.WaitForInputIdle(10000)) { throw 'Tray did not initialize its message loop.' }
         $quietTray.Refresh()
@@ -143,18 +164,19 @@ try {
         if (-not $launcher.WaitForExit(15000) -or $launcher.ExitCode -ne 0) { throw 'Downloaded EXE did not hand off to installed UI.' }
     } finally { $launcher.Dispose() }
     Assert-Service 'Stopped' 'Manual'
-    $tray = @(Get-Process -Name 'DeusKVM.Companion' | Where-Object { $_.Path -eq $binary })
-    if ($tray.Count -ne 1) { throw "Expected one installed tray process, found $($tray.Count)." }
+    $tray = Wait-SingleCompanionTray $quietTrayId
     try {
-        Wait-CompanionWindow $tray[0] $true
-        if (-not $tray[0].CloseMainWindow()) { throw 'Could not close settings to test reopening.' }
-        Wait-CompanionWindow $tray[0] $false
+        Wait-CompanionWindow $tray $true
+        if (-not $tray.CloseMainWindow()) { throw 'Could not close settings to test reopening.' }
+        Wait-CompanionWindow $tray $false
         $again = Start-CompanionProcess $source
         try {
             if (-not $again.WaitForExit(15000) -or $again.ExitCode -ne 0) { throw 'Could not reopen companion.' }
         } finally { $again.Dispose() }
-        Wait-CompanionWindow $tray[0] $true
-    } finally { $tray[0].Dispose() }
+        Wait-CompanionWindow $tray $true
+        $settled = Wait-SingleCompanionTray $quietTrayId
+        $settled.Dispose()
+    } finally { $tray.Dispose() }
     Write-Host 'Checking complete removal with no saved pairing (no Bluetooth hardware required).'
     Invoke-Companion $binary @('--tray-startup', 'on')
     Invoke-Companion $binary @('--remove', '--quiet')
