@@ -6,5 +6,5 @@ cd "$(dirname "$0")"
 ci_scripts/ci_post_clone.sh
 swiftformat --lint .
 swiftlint lint --strict --no-cache
-xcodebuild -project BTRemote.xcodeproj -scheme BTRemote -configuration Debug \
+xcodebuild -project DeusKVM.xcodeproj -scheme DeusKVM -configuration Debug \
     -destination "platform=macOS" -derivedDataPath .build/DerivedData build | xcbeautify

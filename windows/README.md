@@ -118,7 +118,7 @@ The tray can now auto-launch after login; the service and desktop worker still
 operate without it. Login launch does not open a settings window.
 
 Use **Open diagnostics** in the tray for `status.json` and `service.log` in
-`C:\ProgramData\BTRemote`. Logs include discovery results, HRESULTs, desktop
+`C:\ProgramData\DeusKVM`. Logs include discovery results, HRESULTs, desktop
 readiness, service identity and session transitions. They do not record keys,
 mouse movement, clipboard contents or passwords. Logs rotate at 2 MiB with one
 retained file. If status remains **Waiting for the selected Mac's HID mouse**,
@@ -179,12 +179,12 @@ removal last because it intentionally removes the selected Mac pairing.
 Use .NET 10 SDK. Cross-build from macOS:
 
 ```sh
-dotnet build windows/BTRemote.Companion.sln -c Release
-dotnet test windows/BTRemote.Companion.Tests -c Release
+dotnet build windows/DeusKVM.Companion.sln -c Release
+dotnet test windows/DeusKVM.Companion.Tests -c Release
 ./windows/publish.sh win-x64
 ```
 
-Use `win-arm64` for an ARM Windows PC. `BTREMOTE_DOTNET` can point at an isolated
+Use `win-arm64` for an ARM Windows PC. `DEUSKVM_DOTNET` can point at an isolated
 SDK. ZIPs are written to `.build/windows/`. Core tests run on macOS; service,
 WinRT, desktop workers, Raw Input and tray execution must be verified on Windows.
 
@@ -206,15 +206,13 @@ console desktop". No Mac update or Bluetooth re-pairing is needed for this fix.
 
 Windows job session constraint: [AssignProcessToJobObject](https://learn.microsoft.com/en-us/windows/win32/api/jobapi2/nf-jobapi2-assignprocesstojobobject).
 
-## Updating from BTRemote
+## Installation identity
 
-Open **DeusKVM.Companion.exe** from the new ZIP. The updater preserves the
-selected Mac, Bluetooth pairing, service running/stopped state and both startup
-preferences. The service display name and Start menu shortcut become **DeusKVM
-Companion**; the old shortcut is removed.
+This build uses `DeusKVMCompanion` for the service and startup registry entry,
+`C:\Program Files\DeusKVM Companion\DeusKVM.Companion.exe` for the installed
+executable, and `C:\ProgramData\DeusKVM` for settings and diagnostics.
 
-For compatibility, the service ID and startup registry value remain
-`BTRemoteCompanion`, installed files remain under `C:\Program Files\BTRemote Companion`,
-the installed executable remains `BTRemote.Companion.exe`, and diagnostics stay
-in `C:\ProgramData\BTRemote`. These are internal installation identities, not a
-second app. Complete removal handles both names and their extraction caches.
+Remove any earlier development installation using that build's cleanup command
+before installing this one. There is no automatic migration; pair and configure
+your Mac again. Subsequent DeusKVM updates preserve the selected Mac, pairing,
+service running/stopped state, and startup preferences.

@@ -1,6 +1,6 @@
 included:
-  - BTRemote
-  - BTRemoteTests
+  - DeusKVM
+  - DeusKVMTests
 
 excluded:
   - DerivedData

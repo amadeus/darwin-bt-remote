@@ -3,7 +3,7 @@
 ## Verified result
 
 On 2026-09-13, Windows uncached GATT discovery restored the existing Maingear
-connection to the signed macOS BTRemote build without removing or re-pairing
+connection to the signed macOS DeusKVM build without removing or re-pairing
 the device. Windows reported `paired: True`, then `Uncached discovery: Success`
 and a transition from `Disconnected` to `Connected`. The Mac log recorded the
 host reading the rebuilt HID services and subscribing to the battery and all
@@ -17,7 +17,7 @@ the Mac log does not expose Windows' internal state.
 ## Windows service checkpoint
 
 On 2026-09-13, Amadeus installed the first Windows companion service build
-(`faa9d9d`) and confirmed that restarting the Mac BTRemote app restored control
+(`faa9d9d`) and confirmed that restarting the Mac DeusKVM app restored control
 using the existing pairing. The companion UI showed Service Running, Bluetooth
 Discovered, and successful uncached discovery with BLE Connected. Automatic
 recovery across a normal Mac quit/relaunch is now user-verified while Windows
@@ -28,7 +28,7 @@ remain separate validation gates. See `windows/README.md` for those checks.
 ## Reproduction and evidence
 
 1. Pair from Windows: HID control works and Setup shows one subscribed host.
-2. Quit BTRemote normally: `bluetoothd` removes its published HID services,
+2. Quit DeusKVM normally: `bluetoothd` removes its published HID services,
    sends service-change indications that Windows acknowledges, then locally
    disconnects the encrypted BLE link as unused.
 3. Relaunch: services install and advertising starts, but Windows does not
@@ -63,7 +63,7 @@ during these tests.
   BLE connection used by HID is absent.
 - A temporary signed build inspected each input characteristic's native
   `CBMutableCharacteristic.subscribedCentrals` array. All were empty, matching
-  BTRemote's own tracking. This ruled out merely missing a subscription callback
+  DeusKVM's own tracking. This ruled out merely missing a subscription callback
   in this session.
 - At 12:13:42 PDT, the build retrieved the known PC with
   `CBCentralManager.retrievePeripherals(withIdentifiers:)` and called `connect`.
@@ -91,12 +91,12 @@ HID implementation remains unchanged.
 
 ## Current workaround
 
-Keep BTRemote advertising on the Mac. Copy
-`scripts/Test-BTRemoteConnection.ps1` to the PC and run it in a separate Windows
+Keep DeusKVM advertising on the Mac. Copy
+`scripts/Test-DeusKVMConnection.ps1` to the PC and run it in a separate Windows
 PowerShell 5.1 process:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Test-BTRemoteConnection.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Test-DeusKVMConnection.ps1
 ```
 
 The execution-policy override applies only to this process, without changing
@@ -110,7 +110,7 @@ Device enumeration needs a compiled C# `IEnumerable` bridge because Windows
 PowerShell's WinRT collection indexing/method binding is unreliable here.
 Optional service-vector printing is omitted because Windows exposes that
 vector as an unprojected COM object. Local syntax/selection/status regressions
-pass with `scripts/tests/Test-BTRemoteSelection.ps1` under portable PowerShell
+pass with `scripts/tests/Test-DeusKVMSelection.ps1` under portable PowerShell
 7.6.6 on macOS; the complete script has now also run successfully on Windows.
 
 ## Automatic recovery recommendation

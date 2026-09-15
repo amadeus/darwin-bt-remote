@@ -1,6 +1,6 @@
-name: BTRemote
+name: DeusKVM
 options:
-  bundleIdPrefix: io.github.jqssun
+  bundleIdPrefix: io.github.amadeus
   deploymentTarget:
     macOS: "13.0"
   createIntermediateGroups: true
@@ -21,66 +21,66 @@ settings:
     CURRENT_PROJECT_VERSION: "4"
 
 targets:
-  BTRemote:
+  DeusKVM:
     type: application
     supportedDestinations: [macOS]
     sources:
-      - path: BTRemote
+      - path: DeusKVM
         excludes:
           - entitlements.plist
-      - path: BTRemote/entitlements.plist
+      - path: DeusKVM/entitlements.plist
         buildPhase: none
     resources:
-      - BTRemote/Assets.xcassets
-      - BTRemote/PrivacyInfo.xcprivacy
-      - BTRemote/Resources/company_ids.json
-      - BTRemote/Resources/service_uuids.json
+      - DeusKVM/Assets.xcassets
+      - DeusKVM/PrivacyInfo.xcprivacy
+      - DeusKVM/Resources/company_ids.json
+      - DeusKVM/Resources/service_uuids.json
     settings:
       base:
         PRODUCT_NAME: DeusKVM
-        PRODUCT_BUNDLE_IDENTIFIER: io.github.jqssun.btremote
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.amadeus.deuskvm
         GENERATE_INFOPLIST_FILE: NO
-        INFOPLIST_FILE: BTRemote/Info.plist
+        INFOPLIST_FILE: DeusKVM/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
-        "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": BTRemote/entitlements.plist
-  BTRemoteTests:
+        "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": DeusKVM/entitlements.plist
+  DeusKVMTests:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - BTRemoteTests
-      - BTRemote/LowEnergy/HIDReports.swift
-      - BTRemote/LowEnergy/HIDNotificationQueue.swift
-      - BTRemote/LowEnergy/HIDProfile.swift
-      - BTRemote/DirectInputEvent.swift
-      - BTRemote/MacKeyboardMapping.swift
-      - BTRemote/RawKeyboardState.swift
-      - BTRemote/MediaKeyEvent.swift
-      - BTRemote/DirectInputController.swift
-      - BTRemote/AppSettings.swift
-      - BTRemote/HIDInputValue.swift
-      - BTRemote/EdgeGeometry.swift
-      - BTRemote/ReturnMotionProbe.swift
-      - BTRemote/HandoffState.swift
-      - BTRemote/TapRunState.swift
-      - BTRemote/HIDHostPolicy.swift
-      - BTRemote/StatusBarConnectionState.swift
-      - BTRemote/Companion/CompanionProtocol.swift
-      - BTRemote/Clipboard/ClipboardTransfer.swift
-      - BTRemote/Clipboard/ClipboardRevision.swift
-      - BTRemote/Clipboard/ClipboardPasteboard.swift
+      - DeusKVMTests
+      - DeusKVM/LowEnergy/HIDReports.swift
+      - DeusKVM/LowEnergy/HIDNotificationQueue.swift
+      - DeusKVM/LowEnergy/HIDProfile.swift
+      - DeusKVM/DirectInputEvent.swift
+      - DeusKVM/MacKeyboardMapping.swift
+      - DeusKVM/RawKeyboardState.swift
+      - DeusKVM/MediaKeyEvent.swift
+      - DeusKVM/DirectInputController.swift
+      - DeusKVM/AppSettings.swift
+      - DeusKVM/HIDInputValue.swift
+      - DeusKVM/EdgeGeometry.swift
+      - DeusKVM/ReturnMotionProbe.swift
+      - DeusKVM/HandoffState.swift
+      - DeusKVM/TapRunState.swift
+      - DeusKVM/HIDHostPolicy.swift
+      - DeusKVM/StatusBarConnectionState.swift
+      - DeusKVM/Companion/CompanionProtocol.swift
+      - DeusKVM/Clipboard/ClipboardTransfer.swift
+      - DeusKVM/Clipboard/ClipboardRevision.swift
+      - DeusKVM/Clipboard/ClipboardPasteboard.swift
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
-        PRODUCT_BUNDLE_IDENTIFIER: io.github.jqssun.btremote.tests
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.amadeus.deuskvm.tests
 schemes:
-  BTRemote:
+  DeusKVM:
     build:
       targets:
-        BTRemote: all
+        DeusKVM: all
     test:
       targets:
-        - BTRemoteTests
+        - DeusKVMTests
     run:
       config: Debug
     archive:

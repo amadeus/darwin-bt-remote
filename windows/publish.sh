@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-companion_dotnet="${BTREMOTE_DOTNET:-dotnet}"
+companion_dotnet="${DEUSKVM_DOTNET:-dotnet}"
 companion_rid="${1:-win-x64}"
 case "$companion_rid" in win-x64|win-arm64) ;; *) echo 'Use win-x64 or win-arm64' >&2; exit 1 ;; esac
 companion_output=".build/windows/$companion_rid"
-"$companion_dotnet" publish windows/BTRemote.Companion/BTRemote.Companion.csproj \
+"$companion_dotnet" publish windows/DeusKVM.Companion/DeusKVM.Companion.csproj \
   -c Release -r "$companion_rid" --self-contained true -p:PublishSingleFile=true \
   -p:EnableCompressionInSingleFile=true -p:DebugType=None -o "$companion_output"
 cp windows/README.md "$companion_output/README.md"

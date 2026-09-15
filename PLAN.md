@@ -61,10 +61,10 @@ regressions bisect.
 ```
 xcodegen generate                                             # after any project.yml change
 swiftformat --lint . && swiftlint lint --strict               # must be clean before commit
-xcodebuild -project BTRemote.xcodeproj -scheme BTRemote -configuration Debug \
+xcodebuild -project DeusKVM.xcodeproj -scheme DeusKVM -configuration Debug \
   -destination "platform=macOS" -derivedDataPath .build/DerivedData build
-xcodebuild ... test                                           # once BTRemoteTests exists (M0)
-open .build/DerivedData/Build/Products/Debug/BTRemote.app     # for manual checkpoints
+xcodebuild ... test                                           # once DeusKVMTests exists (M0)
+open .build/DerivedData/Build/Products/Debug/DeusKVM.app     # for manual checkpoints
 ```
 
 **Signing.** Set `DEVELOPMENT_TEAM: UHD99KF9X7` and `CODE_SIGN_STYLE:
@@ -78,7 +78,7 @@ source of protocol values; `HIDProfile.reportMapData` and the HID
 characteristics remain unchanged unless checkpoint evidence or an explicitly
 requested capability requires a scoped change; strings via `L10n` + `Localizable.xcstrings`
 (manual/translated entries, new namespaces in new files, never `L10n.swift`);
-settings keys in `AppSettings` as `"BTRemote.camelCase"`; Swift 6 strict
+settings keys in `AppSettings` as `"DeusKVM.camelCase"`; Swift 6 strict
 concurrency (`@MainActor` classes, `nonisolated static` C callbacks, no
 main-actor hop on the tap hot path); lowercase comments, no `// MARK:`; unit
 tests for anything pure (protocol framing against `docs/protocol-vectors.json`,
@@ -98,15 +98,15 @@ parking point = center of the configured display. Keep them in
 
 | Piece                     | Where                                                       | What matters for us                                                                                                                                                                                                                                                                                                                     |
 | ------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| BLE HID peripheral        | `BTRemote/LowEnergy/HIDPeripheral.swift`                    | Builds Battery → Device Info → HID services in `didAdd` chain, then advertises only the HID UUID. Report IDs: 1 mouse (buttons, int8 X/Y/wheel), 2 keyboard, 3 LEDs, 4 battery, 5 system, 6 consumer.                                                                                                                                   |
-| Report map                | `BTRemote/LowEnergy/HIDProfile.swift`                       | 239 of 512 allowed bytes. Any change forces Windows users to unpair/re-pair.                                                                                                                                                                                                                                                            |
+| BLE HID peripheral        | `DeusKVM/LowEnergy/HIDPeripheral.swift`                    | Builds Battery → Device Info → HID services in `didAdd` chain, then advertises only the HID UUID. Report IDs: 1 mouse (buttons, int8 X/Y/wheel), 2 keyboard, 3 LEDs, 4 battery, 5 system, 6 consumer.                                                                                                                                   |
+| Report map                | `DeusKVM/LowEnergy/HIDProfile.swift`                       | 239 of 512 allowed bytes. Any change forces Windows users to unpair/re-pair.                                                                                                                                                                                                                                                            |
 | Notification backpressure | `HIDPeripheral.updateValue` / `pendingBroadcast`            | One global latest-wins slot. A queued keyboard report can be overwritten by a mouse report, and mouse deltas are dropped (not summed) when the queue is full. Wrong for a byte stream.                                                                                                                                                  |
 | Service Changed hack      | `HIDPeripheral.scheduleServiceChanged`                      | Adds/removes a throwaway service so a host with a stale GATT cache re-discovers. The code base already relies on bluetoothd emitting Service Changed.                                                                                                                                                                                   |
-| Direct input              | `BTRemote/DirectInputController.swift` (macOS half)         | Active `CGEventTap` at session level swallowing all input, `NSCursor.hide()`, `CGAssociateMouseAndMouseCursorPosition(false)`, any Ctrl+Alt event releases (to be replaced, §3.2). Needs Accessibility. Owned by `ContentView` as a `@StateObject`; `SetupView.onDisappear` stops it. Shows its own red `NSStatusItem` while capturing. |
+| Direct input              | `DeusKVM/DirectInputController.swift` (macOS half)         | Active `CGEventTap` at session level swallowing all input, `NSCursor.hide()`, `CGAssociateMouseAndMouseCursorPosition(false)`, any Ctrl+Alt event releases (to be replaced, §3.2). Needs Accessibility. Owned by `ContentView` as a `@StateObject`; `SetupView.onDisappear` stops it. Shows its own red `NSStatusItem` while capturing. |
 | Input mapping gaps        | `DirectInputController` key table                           | No left/right modifier distinction, KeypadEnter mapped to Return (0x4C → 0x28, should be 0x58), no nav cluster / keypad / F13-F20, no media keys, scroll clamps per event, no horizontal scroll (needs a report-map field).                                                                                                             |
-| HID facade                | `BTRemote/HIDInput.swift`                                   | Value snapshot rebuilt on every `App` body evaluation. `isConnected` is true for _any_ connected central, not specifically the PC.                                                                                                                                                                                                      |
-| App shell                 | `BTRemoteApp.swift`, `ContentView.swift`, `SetupView.swift` | One `WindowGroup`; backends start from the window's `.onAppear`; iOS and macOS share views behind `#if os(...)`.                                                                                                                                                                                                                        |
-| Classic (HIDP) backend    | `BTRemote/Classic/`                                         | Cannot reach Windows at all (README, and confirmed in code: outbound only). To be deleted in M0.                                                                                                                                                                                                                                        |
+| HID facade                | `DeusKVM/HIDInput.swift`                                   | Value snapshot rebuilt on every `App` body evaluation. `isConnected` is true for _any_ connected central, not specifically the PC.                                                                                                                                                                                                      |
+| App shell                 | `DeusKVMApp.swift`, `ContentView.swift`, `SetupView.swift` | One `WindowGroup`; backends start from the window's `.onAppear`; iOS and macOS share views behind `#if os(...)`.                                                                                                                                                                                                                        |
+| Classic (HIDP) backend    | `DeusKVM/Classic/`                                         | Cannot reach Windows at all (README, and confirmed in code: outbound only). To be deleted in M0.                                                                                                                                                                                                                                        |
 | Build                     | `project.yml` (xcodegen), `build.sh`                        | Swift 6 strict concurrency, swiftformat + `swiftlint --strict`. Baseline (2026-09-13): unsigned Debug macOS build succeeds; lint fails only on `L10n.swift` being 607 lines (limit 600). No tests.                                                                                                                                      |
 
 ---
@@ -207,7 +207,7 @@ parking point = center of the configured display. Keep them in
 **Mac (existing app, macOS-only after M0)**
 
 - `EdgeSwitchCoordinator` (`@MainActor final class … ObservableObject`, owned by
-  `BTRemoteApp` as a `@StateObject`): the single source of truth for who has
+  `DeusKVMApp` as a `@StateObject`): the single source of truth for who has
   control. States: `local` (tap passes through), `remote` (tap swallows and
   forwards HID), `returning`. "Switch to remote" is what the Direct Input
   toggle does today; the edge trigger and the hotkey are new ways to invoke it,
@@ -254,7 +254,7 @@ parking point = center of the configured display. Keep them in
   mappings, modifier encoding, mouse clamping and scroll behavior for M2. The
   coordinator handles permission checks and the Secure Input release. The hotkey
   is checked locally in the same tap in both modes.
-- `CompanionService` (`BTRemote/LowEnergy/CompanionService.swift`): one custom
+- `CompanionService` (`DeusKVM/LowEnergy/CompanionService.swift`): one custom
   128-bit primary service added in `HIDPeripheral`'s `didAdd` for
   `HIDProfile.hidService`, **before** `startAdvertisingNow()`, never removed at
   runtime, never advertised. Characteristics, all encryption-required so the
@@ -288,10 +288,10 @@ in, and remain available after sign-out and while locked. Closing the tray UI
 must not stop the companion. This is Windows sign-in-screen support; firmware
 and pre-boot disk-unlock screens are outside the Windows service's lifetime.
 
-- `BTRemote.Companion.Core` (UI-free): protocol framing, reconnect state machine,
+- `DeusKVM.Companion.Core` (UI-free): protocol framing, reconnect state machine,
   selected paired endpoint, and validated configuration. Keep the working BLE
   HID input path; the companion provides connection recovery and coordination.
-- `BTRemote.Companion.Service`: installed with the Service Control Manager,
+- `DeusKVM.Companion.Service`: installed with the Service Control Manager,
   automatic startup and recovery on failure. Own the BLE connection, custom
   GATT subscriptions, HELLO/PING/STATE, and reconnect/service rediscovery.
   Handle Bluetooth readiness, device changes, power changes, and console-session
@@ -305,7 +305,7 @@ and pre-boot disk-unlock screens are outside the Windows service's lifetime.
   the tested WinRT GATT path; evaluate native `BluetoothGATT*` APIs if service
   context prevents it. Select the service identity/privileges from those results;
   do not require a saved personal account password or an interactive login.
-- `BTRemote.Companion.DesktopWorker`: service-managed worker in the active
+- `DeusKVM.Companion.DesktopWorker`: service-managed worker in the active
   physical console session, with the desktop access needed for `EdgeMonitor`
   and `CursorPlacer`. Services run in Session 0; `SetThreadDesktop` alone does
   not move a service into the console session. Prove worker launch and desktop
@@ -318,7 +318,7 @@ and pre-boot disk-unlock screens are outside the Windows service's lifetime.
   console worker may influence control; fast user switching must not leave an
   old worker controlling the new session. Report actual capability failures as
   blind; a running service does not by itself prove desktop access works.
-- `BTRemote.Companion.App`: optional, unprivileged WinForms `NotifyIcon` and
+- `DeusKVM.Companion.App`: optional, unprivileged WinForms `NotifyIcon` and
   settings UI for device/monitor selection, thresholds, clipboard and status.
   Local, session-scoped named-pipe IPC with explicit ACLs connects the UI and
   workers to the service; privileged requests are validated. Install/uninstall
@@ -450,9 +450,9 @@ edge-return build. Malformed/sequence-gap/CRC failures reset the companion link
 and require a new HELLO; NACK/replay and larger negotiated chunks are deferred
 until bulk clipboard traffic. No corrupted or incomplete message is acted on.
 
-**Source of truth.** `BTRemote/Companion/CompanionProtocol.swift` (pure Swift,
+**Source of truth.** `DeusKVM/Companion/CompanionProtocol.swift` (pure Swift,
 no AppKit, unit-tested) defines every constant, enum and encoder below.
-`windows/BTRemote.Companion.Core/Protocol.cs` mirrors it by hand. Both test
+`windows/DeusKVM.Companion.Core/Protocol.cs` mirrors it by hand. Both test
 suites decode the same golden vectors in `docs/protocol-vectors.json`
 (hex-encoded frames with their decoded meaning); a change to one side that
 breaks the vectors fails the other side's tests. All integers little-endian.
@@ -589,7 +589,7 @@ today.
   Only the selected allowed PC participates. The logged-in desktop worker reads
   and writes text on its own STA; Session 0 and secure desktops never read it.
   Mac access runs off the input/main queue and pauses on sleep/session loss or
-  secure input. No clipboard contents are logged or persisted by BTRemote.
+  secure input. No clipboard contents are logged or persisted by DeusKVM.
 - Send one requested 1 KiB block at a time on the existing bulk stream, keeping
   control messages ahead of bulk and leaving the HID input path unchanged.
   Empty text is valid; malformed UTF-8, NUL and oversized items are rejected.
@@ -672,15 +672,15 @@ target → signing → CI. iOS first because it turns the Classic deletion in
   `sudo xcode-select -s /Applications/Xcode.app`, or prefix builds with
   `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`.
 - Fetch the two gitignored bundle resources
-  `BTRemote/Resources/company_ids.json` and `service_uuids.json` (Bluetooth SIG
+  `DeusKVM/Resources/company_ids.json` and `service_uuids.json` (Bluetooth SIG
   company and service name tables from Nordic's bluetooth-numbers-database;
   `BluetoothNumbers.swift` uses them to label devices).
   `ci_scripts/ci_post_clone.sh` downloads them and runs `xcodegen generate`;
   already done in this worktree.
 - Fix the lint gate: move a namespace out of `L10n.swift` into a new
   `L10n+Layout.swift` (new strings go there anyway).
-- Delete the Classic backend: remove `BTRemote/Classic/`, `TransportMode` and
-  the `classic` state object and mode switch in `BTRemoteApp.swift`, the
+- Delete the Classic backend: remove `DeusKVM/Classic/`, `TransportMode` and
+  the `classic` state object and mode switch in `DeusKVMApp.swift`, the
   Classic branch of `HIDInput.make` (one LE-only `make`), the transport
   picker / paired-devices section / Classic status rows in `SetupView.swift`,
   `GuideView`'s `.classic` case, the `HIDClassicDevice()` in the `#Preview`
@@ -691,7 +691,7 @@ target → signing → CI. iOS first because it turns the Classic deletion in
   remove the iOS deployment target, `IPHONEOS_DEPLOYMENT_TARGET` and
   `TARGETED_DEVICE_FAMILY`; delete `TouchpadView.swift` and the iOS half of
   `DirectInputController.swift` (GameController + `PointerLockHost`); strip the
-  `#if os(iOS)` branches from the 14 files that have them (`BTRemoteApp`,
+  `#if os(iOS)` branches from the 14 files that have them (`DeusKVMApp`,
   `ContentView`, `SetupView`, `SettingsView`, `HIDInput`, `KeyboardView`,
   `TrackpadPanel`, `RemoteTabView`, `GuideView`, `DeviceListView`,
   `DeviceInfoView`, `HIDCentral`, …) and then the now-pointless `#if os(macOS)`
@@ -706,10 +706,10 @@ target → signing → CI. iOS first because it turns the Classic deletion in
   to false (or delete `entitlements.plist` and the `--entitlements` argument in
   `build.sh`). Note UserDefaults move out of the container path, so settings
   start fresh once.
-- Add `BTRemoteTests` (unit-test bundle, `test:` in the scheme) so protocol
+- Add `DeusKVMTests` (unit-test bundle, `test:` in the scheme) so protocol
   framing, edge geometry and key mapping get tests from day one.
 - Add `.github/workflows/ci.yml` (push/PR, unsigned build + lint on
-  `BTRemote/**`; dotnet build/test on `windows/**`). Leave the tag-triggered
+  `DeusKVM/**`; dotnet build/test on `windows/**`). Leave the tag-triggered
   release workflow alone.
 - Signing: `DEVELOPMENT_TEAM: UHD99KF9X7`, `CODE_SIGN_STYLE: Automatic` in
   `project.yml` (see §0), so the Accessibility grant survives rebuilds.
@@ -747,7 +747,7 @@ M3), and the way back is the toggle hotkey or an automatic release. Rule 8 in
 
 - `EdgeSwitchCoordinator` + `InputTap` (single always-on active tap on its own
   thread) + `EdgeGeometry` + `CursorConcealer` (parking panel + freeze + hide
-  strategy from S1), owned by `BTRemoteApp`. Implement the §3.5 invariants
+  strategy from S1), owned by `DeusKVMApp`. Implement the §3.5 invariants
   here, including `returnLocal()`, the local toggle hotkey, and tap-disabled
   and Secure Input releases.
 - Move `DirectInputController` ownership to the app/coordinator instead of
@@ -826,7 +826,7 @@ M3), and the way back is the toggle hotkey or an automatic release. Rule 8 in
   and that the toggle hotkey still returns; stop the Windows companion while controlling the PC and confirm
   the hotkey still returns immediately; sleep and wake the PC and confirm the
   companion reconnects. Additionally: reboot the PC and use it at the sign-in
-  screen before the first login; restart BTRemote while the PC is signed out;
+  screen before the first login; restart DeusKVM while the PC is signed out;
   sign in, lock/unlock, sign out, and switch users. Verify Bluetooth recovery,
   cursor placement and edge return in each state, not just a running service.
   Closing the tray must leave control available. The Mac hotkey remains the
@@ -853,7 +853,7 @@ M3), and the way back is the toggle hotkey or an automatic release. Rule 8 in
   launch-at-login, hotkey/button cursor centering, and disabled/connection icon
   states. These checks are complete; the implementation-time deferrals below
   are historical. Documentation and the DeusKVM rename are now implemented;
-  the rename upgrade still needs native confirmation.
+  the fresh-install rename still needs native confirmation.
 - **Current implementation (2026-09-14):** explicit-switch centering, in-app
   Windows pairing, complete Windows removal, Windows tray startup, optional Mac
   login startup and the Mac enable/disable control are implemented. Builds and
@@ -875,16 +875,18 @@ M3), and the way back is the toggle hotkey or an automatic release. Rule 8 in
   lock-to-screen, remembered Mac exit point for hotkey return, wake PC display on
   enter (consumer report), toggle-key (Caps/Num) sync using the LED output
   report, first-run flow (Mac permissions → install companion → Connect a Mac
-  in the companion → allow input on the Mac → pick edges), launch at login (`SMAppService`, opt-in), companion
+  in the companion → Enable control on the Mac → pick edges), launch at login (`SMAppService`, opt-in), companion
   tray states, Windows tray auto-launch after user login (deferred to final
   polish; independent of boot-started service), README rewrite.
-- App naming: Amadeus chose **DeusKVM** on 2026-09-14. Mac/Windows labels,
-  permission text, device-information strings, EXE/app/archive filenames, Start
-  menu shortcut, service display name and documentation use the new name. Keep
-  existing icons, internal bundle/service/protocol identities, preference keys
-  and installed Windows paths so upgrades preserve configuration and pairing.
-  The updater replaces the old Start menu shortcut; removal handles both names.
-  Native appearance/update validation of the rename remains for Amadeus.
+- App naming: Amadeus chose **DeusKVM** and requested a full source/identity
+  rename on 2026-09-14. Use DeusKVM for folders, filenames, project/scheme names,
+  namespaces, app/service identities, preference keys, paths and packaging.
+  The Mac bundle ID is `io.github.amadeus.deuskvm`; Windows uses the
+  `DeusKVMCompanion` service and DeusKVM installation/data directories.
+  No automatic migration is required: Amadeus will clean up the previous
+  Windows installation and regrant Mac permissions before configuring again.
+  Remove branding-migration code. Keep the upstream acknowledgment and link as
+  the README's final section. Native fresh-install validation remains for Amadeus.
 - Explicit **Switch to PC** actions, whether invoked by hotkey or any button/
   menu action, always place the pointer at the center of the selected Windows
   display. Edge crossings continue to use proportional placement on the entering
@@ -894,12 +896,12 @@ M3), and the way back is the toggle hotkey or an automatic release. Rule 8 in
   Refresh devices and Use selected Mac controls with **Connect a Mac**.
   Discover nearby candidates, let the user choose the Mac, perform pairing
   through Windows APIs (including required system confirmations), verify the
-  BTRemote service and save the endpoint automatically. Reuse an existing bond
+  DeusKVM service and save the endpoint automatically. Reuse an existing bond
   when available. Once configured, show the selected Mac and connection status
   with **Change Mac…** for replacement. Prototype against the actual Mac before
   finalizing discovery/pairing behavior; Windows Bluetooth Settings should not
   be required for the normal setup flow.
-- Complete Windows removal: add **Remove BTRemote from this PC…** to the tray
+- Complete Windows removal: add **Remove DeusKVM from this PC…** to the tray
   app, with confirmation that includes removing the selected Mac's Windows
   Bluetooth pairing. Request administrator access as needed, stop workers and
   the service, unregister the service, remove startup entries/shortcuts, remove
@@ -932,7 +934,7 @@ M3), and the way back is the toggle hotkey or an automatic release. Rule 8 in
 
 | File                                                                  | Change                                                                                                                                                                                                                                                                                                                                                                                                     |
 | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BTRemoteApp.swift`                                                   | Own `EdgeSwitchCoordinator` (which owns `InputTap`, `DirectInputController`, `CursorConcealer`) as a `@StateObject`; `MenuBarExtra` + `Settings` scenes; start backends without a window; factor the environment-injection chain into a `ViewModifier`; `LSUIElement` in `Info.plist`.                                                                                                                              |
+| `DeusKVMApp.swift`                                                   | Own `EdgeSwitchCoordinator` (which owns `InputTap`, `DirectInputController`, `CursorConcealer`) as a `@StateObject`; `MenuBarExtra` + `Settings` scenes; start backends without a window; factor the environment-injection chain into a `ViewModifier`; `LSUIElement` in `Info.plist`.                                                                                                                              |
 | `ContentView.swift`                                                   | Drop the macOS `@StateObject directInput` and the connect/accessibility auto-prompts (coordinator handles them).                                                                                                                                                                                                                                                                                           |
 | `SetupView.swift`                                                     | Delete `.onDisappear { directInput.stop() }`; keep manual toggle; remove the Classic transport picker, paired-devices section and status rows.                                                                                                                                                                                                                                                             |
 | `DirectInputController.swift` | Preserve translation and forwarding; adapt ownership/tap lifecycle for edge activation and the local toggle hotkey; move status indication to the app. No speculative key-map, delta or scroll changes. |
@@ -940,7 +942,7 @@ M3), and the way back is the toggle hotkey or an automatic release. Rule 8 in
 | `LowEnergy/HIDProfile.swift` | Add companion UUIDs in M3; retain the HID report map unless a reproduced issue or requested capability requires a change. |
 | `LowEnergy/HIDReports.swift` | Preserve existing report layouts and key definitions; change only for reproduced checkpoint issues or explicitly requested capabilities. |
 | `HIDInput.swift`                                                      | `isConnected` for a _specific_ central; optional `sendSystemControl`.                                                                                                                                                                                                                                                                                                                                      |
-| `AppSettings.swift`, new `L10n+Layout.swift`, `Localizable.xcstrings` | Keys and strings per convention (`"BTRemote.camelCase"`, `layout.snake_case`, manual/translated entries).                                                                                                                                                                                                                                                                                                  |
+| `AppSettings.swift`, new `L10n+Layout.swift`, `Localizable.xcstrings` | Keys and strings per convention (`"DeusKVM.camelCase"`, `layout.snake_case`, manual/translated entries).                                                                                                                                                                                                                                                                                                  |
 | `project.yml`, `.swiftlint.yml`, `.swiftformat`, `.gitignore`         | Test target; include tests in lint; exclude `windows/`; ignore `windows/**/bin`, `obj`, `.vs`.                                                                                                                                                                                                                                                                                                             |
 | New                                                                   | `EdgeSwitchCoordinator.swift`, `InputTap.swift`, `EdgeGeometry.swift`, `CursorConcealer.swift`, `LayoutSettingsView.swift`, `ClipboardWatcher.swift`, `LowEnergy/CompanionService.swift`, `CompanionLink.swift`, `Companion/CompanionProtocol.swift` (AppKit-free source of truth, §3.3), `docs/protocol-vectors.json`, `windows/…` with `Protocol.cs` mirroring it |
 
@@ -1076,7 +1078,7 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
 - Reconnect checkpoint: normal Mac quit/relaunch loses automatic Windows HID
   reconnection. Uncached discovery from Windows restored the existing pairing's
   HID subscriptions, and the user confirmed control still worked after the
-  diagnostic exited. Use scripts/Test-BTRemoteConnection.ps1 as the verified
+  diagnostic exited. Use scripts/Test-DeusKVMConnection.ps1 as the verified
   manual workaround; automate recovery in M3. Peripheral state restoration did
   not fix normal quit and was reverted. See docs/BLUETOOTH-RECONNECT.md.
 - Mac-only reconnect follow-up: while the PC remained connected over Classic
@@ -1113,7 +1115,7 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   formatter/linter pass; the running Mac app was not restarted or changed.
 - M3 live service checkpoint (2026-09-13): Amadeus installed the Windows
   companion, selected the existing paired Mac, and confirmed that restarting
-  the Mac BTRemote app reconnects and restores control without re-pairing. The
+  the Mac DeusKVM app reconnects and restores control without re-pairing. The
   Windows UI showed Service Running, Bluetooth Discovered, and successful
   uncached discovery with BLE Connected. Signed-out recovery and boot before
   first login remain unverified; they are the next manual checks.
@@ -1273,7 +1275,7 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   another build/restart and repeated successful returns are logged. Late display
   configuration is suspected, not yet proven. Investigate reconnect readiness
   separately; the cursor-window change does not alter the companion protocol.
-- Allowed-device checkpoint: Setup now saves an explicit Allow input list.
+- Allowed-device checkpoint: Setup now saves an explicit Enable control list.
   New subscribers start unapproved; saved devices remain manageable offline.
   Select one ready allowed device for input, retain that target when another
   device arrives, and expose Use device for an explicit switch between ready
@@ -1284,7 +1286,7 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   keyboard subscriptions; stop once one is ready, and resume when none remains.
   Track mouse/keyboard report identities separately because all report
   characteristics share UUID 0x2A4D. Battery/media-only subscriptions cannot
-  make a host ready. This controls BTRemote advertising/input delivery; it does
+  make a host ready. This controls DeusKVM advertising/input delivery; it does
   not remove OS Bluetooth bonds or prevent macOS from accepting other links.
 - Validation: signed Mac build, strict lint and all 27 Swift tests pass. Policy
   regressions cover unknown hosts, partial subscriptions, target retention,
@@ -1440,6 +1442,20 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
 
 ### M5 implementation details — 2026-09-14
 
+- Full deep rename: source/test folders, filenames, Swift project/scheme,
+  Windows solution/projects/namespaces, bundle ID, preferences, log/clipboard
+  identifiers, service/IPC/startup names, install/data/cache paths and build
+  scripts now use DeusKVM. Removed the previous branding-migration code and
+  its test fixture. No automatic migration from earlier development builds.
+  Repository ownership/reporting metadata now points to this fork; the final
+  README section acknowledges and links the upstream project.
+- Deep-rename validation: 68 Mac unit tests, 85 Windows core tests, all five
+  cleanup tests, diagnostic selection and lifecycle startup-query checks pass.
+  Verified the Windows assembly's renamed embedded cleanup resource and service
+  identity. Strict Swift lint/format checks pass. No app interaction tests were
+  run; fresh-install permissions, pairing and Windows lifecycle remain manual
+  or CI validation after pushing.
+
 - Validation for the rename: signed Mac build and 68 unit tests pass; Windows
   build and 85 core tests pass; all five disposable-file cleanup tests, the
   PowerShell startup-query checks, SwiftFormat and strict SwiftLint pass. The
@@ -1447,13 +1463,14 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   native Windows lifecycle validation requires a new CI run after pushing.
 - Renamed the product to DeusKVM and rewrote the root README around the current
   Mac/Windows setup, edge switching, clipboard, startup, update and removal flow.
-  Source project names and installed identities stay compatible with BTRemote.
+  Source project names and installed identities now also use DeusKVM; fresh
+  installation replaces the earlier compatibility-preserving approach.
 - PR #1's two Windows jobs failed in the lifecycle harness's clean-machine
   check: Get-ItemPropertyValue throws for a missing Run value under PowerShell
   5.1 even with SilentlyContinue. Read the key's property collection instead,
   preserving errors for actual access failures. The same correction applies to
   disabled-startup, update-preservation and removal assertions. The Windows
-  lifecycle test also checks service/shortcut branding migration.
+  lifecycle test checks the DeusKVM service, shortcut, startup and removal paths.
 
 - Mac header scrolling appearance is complete and user-confirmed. Restoring
   the form viewport to its native pane bounds allows content to scroll beneath
@@ -1465,11 +1482,11 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
   Legacy companions retain their prior entry behavior until updated.
 - Windows setup uses Connect a Mac / Change Mac. Discover AEP candidates, reuse
   existing bonds, let Windows handle pairing consent/PINs, verify HID plus the
-  BTRemote GATT service, then save. Verification/save failure rolls back only a
+  DeusKVM GATT service, then save. Verification/save failure rolls back only a
   bond created by that attempt; the previous selected Mac stays configured.
 - Removal stops workers/service, removes only the selected Mac pairing, service
   registration, event-source registration, startup entry, shortcut, settings/logs,
-  installed files and standard BTRemote .NET extraction caches. A built-in
+  installed files and standard DeusKVM .NET extraction caches. A built-in
   PowerShell process finishes file deletion after the EXE exits, without writing
   a helper script. Failures are reported and preserve a retry marker; opening
   the downloaded EXE again offers to finish removal. OS execution/security

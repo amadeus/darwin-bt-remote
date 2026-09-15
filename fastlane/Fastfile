@@ -1,5 +1,5 @@
-PROJECT = "BTRemote.xcodeproj"
-SCHEME  = "BTRemote"
+PROJECT = "DeusKVM.xcodeproj"
+SCHEME  = "DeusKVM"
 APP_ID  = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
 TEAM    = CredentialsManager::AppfileConfig.try_fetch_value(:team_id)
 

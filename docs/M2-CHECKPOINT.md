@@ -5,7 +5,7 @@
 Run `./build.sh`, then:
 
 ```sh
-open .build/DerivedData/Build/Products/Debug/BTRemote.app
+open .build/DerivedData/Build/Products/Debug/DeusKVM.app
 ```
 
 The app lives in the menu bar after you close its window. Choose **Open controls…**
@@ -14,8 +14,8 @@ to reopen Setup, Layout, and Settings.
 ## Set up
 
 1. Allow Bluetooth. In System Settings → Privacy & Security → Accessibility,
-   add this worktree's built `BTRemote.app` if necessary and enable it. An older
-   BTRemote permission entry may belong to a different build/signature.
+   add this worktree's built `DeusKVM.app` if necessary and enable it. An older
+   DeusKVM permission entry may belong to a different build/signature.
 2. Pair the Mac from Windows Bluetooth Settings as with the original app.
    Horizontal scrolling now adds a field to the HID mouse descriptor. An existing
    Windows pairing may need to be removed and paired once more to refresh its
@@ -61,7 +61,7 @@ reproduced issue calls for them.
 
 ```sh
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-  xcodebuild -project BTRemote.xcodeproj -scheme BTRemote \
+  xcodebuild -project DeusKVM.xcodeproj -scheme DeusKVM \
   -configuration Debug -destination 'platform=macOS' \
   -derivedDataPath .build/DerivedData build test
 ```

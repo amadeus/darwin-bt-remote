@@ -4,4 +4,4 @@ Move through a configured display edge to control Windows, then return through i
 
 The Windows companion service manages reconnection, cursor placement, edge return, and clipboard coordination. Input control is available at the Windows login screen; clipboard sharing pauses while locked or signed out. The optional Windows tray app configures the service.
 
-DeusKVM is based on BTRemote and is available under the AGPL-3.0 license at https://github.com/amadeus/darwin-bt-remote.
+DeusKVM is available under the AGPL-3.0 license at https://github.com/amadeus/darwin-bt-remote.

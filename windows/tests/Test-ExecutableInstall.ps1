@@ -4,11 +4,11 @@
 param([Parameter(Mandatory = $true)][string] $Executable)
 $ErrorActionPreference = 'Stop'
 $source = (Resolve-Path -LiteralPath $Executable).Path
-$install = Join-Path $env:ProgramFiles 'BTRemote Companion'
-$binary = Join-Path $install 'BTRemote.Companion.exe'
-$data = Join-Path $env:ProgramData 'BTRemote'
+$install = Join-Path $env:ProgramFiles 'DeusKVM Companion'
+$binary = Join-Path $install 'DeusKVM.Companion.exe'
+$data = Join-Path $env:ProgramData 'DeusKVM'
 $runKey = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run'
-$runName = 'BTRemoteCompanion'
+$runName = 'DeusKVMCompanion'
 $shortcut = Join-Path ([Environment]::GetFolderPath('CommonPrograms')) 'DeusKVM Companion.lnk'
 function Get-TrayStartupCommand {
     # Get-ItemPropertyValue throws a terminating error for an absent value in
@@ -20,12 +20,11 @@ function Get-TrayStartupCommand {
     if ($null -ne $property) { return $property.Value }
     return $null
 }
-$legacyShortcut = Join-Path ([Environment]::GetFolderPath('CommonPrograms')) 'BTRemote Companion.lnk'
-if ((Get-Service BTRemoteCompanion -ErrorAction SilentlyContinue) -or
+if ((Get-Service DeusKVMCompanion -ErrorAction SilentlyContinue) -or
     (Test-Path -LiteralPath $install) -or (Test-Path -LiteralPath $data) -or
-    (Test-Path -LiteralPath $shortcut) -or (Test-Path -LiteralPath $legacyShortcut) -or
+    (Test-Path -LiteralPath $shortcut) -or
     ($null -ne (Get-TrayStartupCommand))) {
-    throw 'This test requires a clean machine without an existing BTRemote installation.'
+    throw 'This test requires a clean machine without an existing DeusKVM installation.'
 }
 function Start-CompanionProcess {
     param([string] $Path, [string[]] $Command = @())
@@ -62,7 +61,7 @@ function Invoke-Companion {
 }
 function Assert-Service {
     param([string] $State, [string] $Startup)
-    $service = Get-Service BTRemoteCompanion
+    $service = Get-Service DeusKVMCompanion
     try {
         if ($service.DisplayName -ne 'DeusKVM Companion') { throw 'Service display name was not updated.' }
         if ($service.Status.ToString() -ne $State -or $service.StartType.ToString() -ne $Startup) {
@@ -112,11 +111,6 @@ try {
     $settings = Join-Path $data 'settings.json'
     [IO.File]::WriteAllText($settings, '{"DeviceId":"test-selected-mac","DeviceName":"Keep this Mac"}')
     $before = (Get-FileHash -LiteralPath $settings).Hash
-    # Simulate the old display name/shortcut while retaining the installed
-    # service identity, EXE location and preferences used by existing releases.
-    Move-Item -LiteralPath $shortcut -Destination $legacyShortcut
-    & "$env:SystemRoot\System32\sc.exe" config BTRemoteCompanion DisplayName= 'BTRemote Companion'
-    if ($LASTEXITCODE -ne 0) { throw 'Could not prepare the legacy display-name fixture.' }
     Write-Host 'Checking update with the installed tray open.'
     $tray = Start-CompanionProcess $binary
     try {
@@ -125,7 +119,7 @@ try {
         if (-not $tray.WaitForExit(10000)) { throw 'Update did not close the previous tray.' }
     } finally { $tray.Dispose() }
     Assert-Service 'Stopped' 'Manual'
-    if ((Test-Path -LiteralPath $legacyShortcut) -or -not (Test-Path -LiteralPath $shortcut)) { throw 'Start menu shortcut was not migrated.' }
+    if (-not (Test-Path -LiteralPath $shortcut)) { throw 'Update removed the Start menu shortcut.' }
     if ($null -ne (Get-TrayStartupCommand)) { throw 'Update re-enabled tray startup.' }
     if ((Get-FileHash -LiteralPath $settings).Hash -ne $before) { throw 'Update changed the selected Mac.' }
     if ((Get-FileHash -LiteralPath $binary).Hash -ne (Get-FileHash -LiteralPath $source).Hash) { throw 'Wrong installed EXE.' }
@@ -149,7 +143,7 @@ try {
         if (-not $launcher.WaitForExit(15000) -or $launcher.ExitCode -ne 0) { throw 'Downloaded EXE did not hand off to installed UI.' }
     } finally { $launcher.Dispose() }
     Assert-Service 'Stopped' 'Manual'
-    $tray = @(Get-Process -Name 'BTRemote.Companion' | Where-Object { $_.Path -eq $binary })
+    $tray = @(Get-Process -Name 'DeusKVM.Companion' | Where-Object { $_.Path -eq $binary })
     if ($tray.Count -ne 1) { throw "Expected one installed tray process, found $($tray.Count)." }
     try {
         Wait-CompanionWindow $tray[0] $true
@@ -169,10 +163,10 @@ try {
         if ($removalTimer.Elapsed.TotalSeconds -gt 60) { throw 'Removal did not delete its installed files and data.' }
         Start-Sleep -Milliseconds 100
     }
-    if (Get-Service BTRemoteCompanion -ErrorAction SilentlyContinue) { throw 'Removal left the service registered.' }
-    if ((Test-Path -LiteralPath $shortcut) -or (Test-Path -LiteralPath $legacyShortcut)) { throw 'Removal left a shortcut.' }
+    if (Get-Service DeusKVMCompanion -ErrorAction SilentlyContinue) { throw 'Removal left the service registered.' }
+    if ((Test-Path -LiteralPath $shortcut)) { throw 'Removal left the shortcut.' }
     if ($null -ne (Get-TrayStartupCommand)) { throw 'Removal left tray startup enabled.' }
-    if (Test-Path -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\BTRemoteCompanion') { throw 'Removal left its event-source registration.' }
+    if (Test-Path -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\DeusKVMCompanion') { throw 'Removal left its event-source registration.' }
     Write-Host 'EXE installation, update, startup, reopening and removal passed.'
 } catch {
     $failure = $_
@@ -185,16 +179,16 @@ try {
     # Cleanup must finish process termination before deleting mapped EXEs, and
     # must not replace the original assertion with a secondary cleanup error.
     try {
-        $service = Get-Service BTRemoteCompanion -ErrorAction SilentlyContinue
+        $service = Get-Service DeusKVMCompanion -ErrorAction SilentlyContinue
         if ($service) {
             try {
                 if ($service.Status -ne 'Stopped') { $service.Stop(); $service.WaitForStatus('Stopped', [TimeSpan]::FromSeconds(30)) }
-                & "$env:SystemRoot\System32\sc.exe" delete BTRemoteCompanion
+                & "$env:SystemRoot\System32\sc.exe" delete DeusKVMCompanion
                 if ($LASTEXITCODE -ne 0) { throw "Service deletion failed: $LASTEXITCODE" }
             } finally { $service.Dispose() }
         }
     } catch { $cleanupErrors.Add($_.ToString()) }
-    foreach ($process in @(Get-Process -Name 'BTRemote.Companion' -ErrorAction SilentlyContinue)) {
+    foreach ($process in @(Get-Process -Name 'DeusKVM.Companion' -ErrorAction SilentlyContinue)) {
         try {
             if ($process.Path -eq $binary -or $process.Path -eq $source) { Stop-CompanionProcess $process }
         } catch { $cleanupErrors.Add($_.ToString()) }
@@ -202,10 +196,10 @@ try {
     }
     try {
         if ($null -ne (Get-TrayStartupCommand)) { Remove-ItemProperty -LiteralPath $runKey -Name $runName }
-        $eventSource = 'HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\BTRemoteCompanion'
+        $eventSource = 'HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\DeusKVMCompanion'
         if (Test-Path -LiteralPath $eventSource) { Remove-Item -LiteralPath $eventSource -Recurse -Force }
     } catch { $cleanupErrors.Add($_.ToString()) }
-    foreach ($path in @($shortcut, $legacyShortcut, $install, $data)) {
+    foreach ($path in @($shortcut, $install, $data)) {
         try {
             if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Recurse -Force }
         } catch { $cleanupErrors.Add($_.ToString()) }

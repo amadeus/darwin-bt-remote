@@ -1,4 +1,4 @@
-"""Exercise the embedded cleanup helper on disposable files; never launch BTRemote."""
+"""Exercise the embedded cleanup helper on disposable files; never launch DeusKVM."""
 import argparse
 import base64
 import json
@@ -11,7 +11,7 @@ import uuid
 parser = argparse.ArgumentParser()
 parser.add_argument('--powershell', default='pwsh')
 args, remaining = parser.parse_known_args()
-source = (pathlib.Path(__file__).resolve().parents[1] / 'BTRemote.Companion' / 'FinishRemoval.ps1').read_text()
+source = (pathlib.Path(__file__).resolve().parents[1] / 'DeusKVM.Companion' / 'FinishRemoval.ps1').read_text()
 
 
 class RemovalFilesTests(unittest.TestCase):
@@ -30,7 +30,7 @@ if ($PSVersionTable.PSVersion.Major -ge 7) {
         script = ("$showResult = $false\n$removingProcess = 2147483647\n"
                   + f"$encodedPaths = '{encoded}'\n"
                   + legacy
-                  + source.replace('Global\\BTRemoteCompanionInstall', 'BTRemoteRemovalTest' + uuid.uuid4().hex))
+                  + source.replace('Global\\DeusKVMCompanionInstall', 'DeusKVMRemovalTest' + uuid.uuid4().hex))
         command = base64.b64encode(script.encode('utf-16le')).decode()
         return subprocess.run([args.powershell, '-NoProfile', '-NonInteractive', '-EncodedCommand', command],
                               capture_output=True, text=True, timeout=30)

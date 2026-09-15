@@ -6,9 +6,7 @@ hotkey. A Windows companion service handles reconnecting, cursor placement,
 edge return, and plain-text clipboard sharing, including input control at the
 Windows login screen.
 
-DeusKVM is a personal fork of
-[BTRemote](https://github.com/jqssun/darwin-bt-remote). Keyboard and mouse input
-use Bluetooth LE HID; the companion control and clipboard channel also uses
+Keyboard and mouse input use Bluetooth LE HID; the companion control and clipboard channel also uses
 BLE. No LAN connection is required.
 
 ## Setup
@@ -61,10 +59,12 @@ location if using launch-at-login. On Windows, open the new downloaded EXE;
 it updates the installation and closes the old companion automatically.
 Existing Bluetooth pairings and preferences are retained.
 
-When upgrading from BTRemote, internal bundle, preference, protocol, and Windows
-service identities remain stable. Windows' Start menu and service display name
-become **DeusKVM Companion**. Compatibility paths and removal behavior are
-listed in the [Windows guide](windows/README.md#updating-from-btremote).
+**First installation after the full rename:** use the previous Windows app's
+cleanup command before installing this build. On the Mac, turn off launch at
+login in the previous app, quit it, and grant Bluetooth, Accessibility, and
+Input Monitoring permissions to this app. Set up pairing, Enable control, and
+your layout again. This build uses new app/service identities and settings;
+there is no automatic migration from earlier development builds.
 
 To remove the Windows installation, choose **Remove DeusKVM from this PC…**.
 It removes the service, startup entries, installed files, settings/logs, and the
@@ -73,8 +73,7 @@ the downloaded EXE/ZIP. Other Bluetooth pairings are untouched.
 
 ## Build
 
-The source project names remain `BTRemote` for compatibility; build products use
-DeusKVM. For macOS, install Xcode (26 or later for the current UI), `xcodegen`,
+For macOS, install Xcode (26 or later for the current UI), `xcodegen`,
 `swiftformat`, `swiftlint`, and `xcbeautify`, then run:
 
 ```sh
@@ -89,8 +88,8 @@ The Windows companion requires the .NET 10 SDK to build. It can be cross-built
 on macOS:
 
 ```sh
-dotnet build windows/BTRemote.Companion.sln -c Release
-dotnet test windows/BTRemote.Companion.Tests -c Release
+dotnet build windows/DeusKVM.Companion.sln -c Release
+dotnet test windows/DeusKVM.Companion.Tests -c Release
 ./windows/publish.sh win-x64
 ```
 
@@ -101,5 +100,12 @@ policy tests. [PLAN.md](PLAN.md) records implementation scope and validation.
 
 ## License
 
-Based on the upstream BTRemote project. Licensed under
-[AGPL-3.0-only](LICENSE); preserve upstream license obligations.
+DeusKVM is licensed under [AGPL-3.0-only](LICENSE).
+
+## Acknowledgments
+
+DeusKVM was forked from [BTRemote by jqssun](https://github.com/jqssun/darwin-bt-remote).
+We built a new Mac-to-Windows KVM app on top of its Bluetooth HID foundation,
+adding screen-edge switching, a Windows companion service, login-screen control,
+and shared text clipboard support. Thanks to the original author and contributors
+for making that foundation available as open source.

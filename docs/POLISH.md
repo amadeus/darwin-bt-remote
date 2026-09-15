@@ -149,7 +149,9 @@ app and verify that switching and clipboard sharing work again.
 Amadeus subsequently confirmed in-app pairing, login startup, cleanup after its
 fix, hotkey/button cursor centering, disabled/connection icon states, and the
 Mac header scrolling appearance. Keep the checks above for regression testing.
-The DeusKVM rename still needs a native update/appearance check.
+The full DeusKVM rename uses fresh app/service identities and still needs a
+native fresh-install/appearance check. Remove the previous Windows installation
+with its own cleanup command first, and regrant permissions on the Mac.
 
 Implementation references:
 [Windows pairing](https://learn.microsoft.com/en-us/windows/apps/develop/devices-sensors/pair-devices),
