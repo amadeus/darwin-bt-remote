@@ -218,7 +218,7 @@ final class EdgeSwitchCoordinator: ObservableObject {
     }
 
     private func _refresh() {
-        let permission = AccessibilityPermission.isTrusted && CGPreflightPostEventAccess()
+        let permission = AccessibilityPermission.isTrusted
         let secure = IsSecureEventInputEnabled()
         if permissionGranted != permission { permissionGranted = permission }
         if secureInput != secure { secureInput = secure }

@@ -6,17 +6,22 @@ struct DeusKVMApp: App {
     @StateObject private var lowEnergy: HIDPeripheral
     @StateObject private var central: HIDCentral
     @StateObject private var coordinator: EdgeSwitchCoordinator
-    @StateObject private var deviceNames = DeviceNameStore()
+    @StateObject private var deviceNames: DeviceNameStore
     @Environment(\.openWindow) private var openWindow
 
     init() {
         UserDefaults.standard.register(defaults: [AppSettings.useServiceChangedKey: true])
         let peripheral = HIDPeripheral()
         let central = HIDCentral()
+        let names = DeviceNameStore()
+        peripheral.companion.onComputerName = { [weak names] id, name in
+            names?.rememberName(name, for: id)
+        }
         let coordinator = EdgeSwitchCoordinator(lowEnergy: peripheral, central: central)
         _lowEnergy = StateObject(wrappedValue: peripheral)
         _central = StateObject(wrappedValue: central)
         _coordinator = StateObject(wrappedValue: coordinator)
+        _deviceNames = StateObject(wrappedValue: names)
         AppDelegate.coordinator = coordinator
     }
 

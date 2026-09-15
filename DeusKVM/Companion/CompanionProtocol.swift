@@ -120,6 +120,7 @@ struct CompanionHello: Codable {
     var resume: Bool?
     var center: Bool?
     var clipboard: Int?
+    var computerName: String?
 }
 
 struct PCMonitor: Codable, Identifiable, Equatable {

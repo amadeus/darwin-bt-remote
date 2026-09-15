@@ -14,6 +14,7 @@ final class CompanionService: ObservableObject {
     var clipboardTarget: (() -> UUID?)?
     var onClipboard: ((UUID, CompanionProtocol.Message, Data) throws -> Void)?
     var onReady: ((UUID) -> Void)?
+    var onComputerName: ((UUID, String) -> Void)?
     private var manager: CBPeripheralManager?
     private var clients: [UUID: Client] = [:]
     private var controls: [Queued] = []
@@ -183,6 +184,7 @@ final class CompanionService: ObservableObject {
         clients[id]?.supportsResume = hello.resume == true
         clients[id]?.supportsCenter = hello.center == true
         clients[id]?.supportsClipboard = hello.clipboard == 1
+        if let name = hello.computerName { onComputerName?(id, name) }
         ready.insert(id)
         lastSeen[id] = ProcessInfo.processInfo.systemUptime
         onReady?(id)

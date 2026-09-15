@@ -2,6 +2,10 @@ import AppKit
 import IOKit.hidsystem
 
 enum KeyboardMonitoringPermission {
+    static var isGranted: Bool {
+        IOHIDCheckAccess(kIOHIDRequestTypeListenEvent) == kIOHIDAccessTypeGranted
+    }
+
     @MainActor
     static func request() {
         IOHIDRequestAccess(kIOHIDRequestTypeListenEvent)

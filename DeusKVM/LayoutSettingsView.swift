@@ -13,14 +13,9 @@ struct LayoutSettingsView: View {
                 if !coordinator
                     .isEnabled { Text("DeusKVM is disabled. Enable it in Settings or the menu bar.").foregroundStyle(.secondary) }
                 if coordinator.isEnabled, !coordinator.targetAvailable { Text(L10n.Layout.noTarget).foregroundStyle(.orange) }
-                if coordinator.isEnabled, !coordinator.permissionGranted {
-                    Button(L10n.DirectInput.openSettings) { AccessibilityPermission.request() }
-                    Text(L10n.DirectInput.permissionMessage).font(.caption)
-                }
-                if coordinator.isEnabled, coordinator.permissionGranted, !coordinator.keyboardMonitoringReady {
-                    Button("Enable complete keyboard capture") { KeyboardMonitoringPermission.request() }
-                    Text("Allow DeusKVM in Input Monitoring, then reopen it to forward Print Screen, Scroll Lock, and Pause.")
-                        .font(.caption).foregroundStyle(.secondary)
+                if coordinator.isEnabled, !coordinator.permissionGranted || !coordinator.keyboardMonitoringReady {
+                    Text("Finish granting permissions in Setup to enable complete keyboard and mouse control.")
+                        .font(.caption).foregroundStyle(.orange)
                 }
                 if coordinator.secureInput { Text(L10n.Layout.secureInput).foregroundStyle(.orange) }
                 if let error = coordinator.lastError { Text(verbatim: error).foregroundStyle(.red) }

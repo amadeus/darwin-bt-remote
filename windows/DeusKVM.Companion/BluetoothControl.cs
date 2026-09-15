@@ -112,7 +112,8 @@ internal sealed partial class BluetoothControl(Action<string> status) : IDisposa
                 ready = true;
                 clipboardPeer = hello.RootElement.TryGetProperty("clipboard", out var capability) &&
                     capability.TryGetInt32(out var clipboardVersion) && clipboardVersion == 1;
-                SendJson(Protocol.Message.Hello, new { v = 1, role = "pc", name = "DeusKVM Companion", chunk = 20, resume = true, center = true, clipboard = 1 });
+                SendJson(Protocol.Message.Hello, new { v = 1, role = "pc", name = "DeusKVM Companion",
+                    computerName = Environment.MachineName, chunk = 20, resume = true, center = true, clipboard = 1 });
                 UpdateClipboardSession(true);
                 if (monitors.Length > 0) SendScreens();
                 SetDetail("Companion connected; waiting for desktop status");

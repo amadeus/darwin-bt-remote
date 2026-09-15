@@ -11,10 +11,12 @@ BLE. No LAN connection is required.
 
 ## Setup
 
-1. Open **DeusKVM.app** on the Mac. Allow Bluetooth, then enable DeusKVM in
-   **System Settings → Privacy & Security → Accessibility** and **Input
-   Monitoring**. If Accessibility does not list it, add the app with **+**.
-   Reopen the app after granting Input Monitoring.
+1. Open **DeusKVM.app** on the Mac. In **Setup → Permissions**, use each
+   **Allow…** button to grant Bluetooth, Accessibility, and Input Monitoring.
+   Each button requests access or opens the relevant System Settings pane.
+   If DeusKVM is missing from Accessibility or Input Monitoring, use
+   **Show DeusKVM in Finder**, then add that app with **+** in System Settings.
+   Reopen DeusKVM after granting Input Monitoring.
 2. On Windows, extract **DeusKVM-Companion-win-x64.zip** and open
    **DeusKVM.Companion.exe**. Approve the administrator prompt. The EXE installs
    or updates the service and opens its settings; no scripts or separate .NET

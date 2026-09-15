@@ -543,6 +543,10 @@ CONFIG       {"edge":1,"monitor":"\\\\.\\DISPLAY1","span":[0.0,1.0],"pushCounts"
   nothing else is sent until both HELLOs are in. `chunk` is what the sender can
   receive per chunk (Mac: `maximumUpdateValueLength`; PC: `MaxPduSize − 3`,
   capped at 244); each side then uses `min(own, peer)`.
+- PC HELLO includes optional `computerName` (the Windows machine name), separate
+  from the companion app's `name`. The Mac seeds a missing device alias from the
+  validated handshake's central UUID, without changing control permissions,
+  selecting a host, or overwriting an existing alias. Older companions omit it.
 - `SCREEN_INFO` is sent after HELLO and again on `WM_DISPLAYCHANGE`. `monitor`
   in CONFIG is the `id` from SCREEN_INFO (`MONITORINFOEX.szDevice`).
 - PC HELLO may advertise `"resume":true` (absent means unsupported). When a

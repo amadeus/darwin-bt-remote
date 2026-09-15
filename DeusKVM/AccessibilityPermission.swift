@@ -3,12 +3,14 @@ import ApplicationServices
 
 enum AccessibilityPermission {
     static var isTrusted: Bool {
-        AXIsProcessTrusted()
+        AXIsProcessTrusted() && CGPreflightPostEventAccess()
     }
 
     static func request() {
-        let promptOption = "AXTrustedCheckOptionPrompt"
-        _ = AXIsProcessTrustedWithOptions([promptOption: true] as CFDictionary)
+        // Request the event-posting access used by capture, rather than only opening Settings.
+        if !CGPreflightPostEventAccess() {
+            CGRequestPostEventAccess()
+        }
 
         guard let url = URL(
             string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"

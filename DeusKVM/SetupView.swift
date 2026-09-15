@@ -22,6 +22,7 @@ struct SetupView: View {
 
     private var form: some View {
         Form {
+            PermissionsSection()
             connectionSection
             if !_connectedDevices.isEmpty { connectedDevicesSection }
             statusSection
@@ -112,12 +113,12 @@ struct SetupView: View {
     private func _seedAliasesFromScan() {
         for uuid in lowEnergy.connectedCentrals where names.name(for: uuid) == nil {
             guard let scanned = central.discovered.first(where: { $0.id == uuid && $0.isNamed })?.name else { continue }
-            names.setName(scanned, for: uuid)
+            names.rememberName(scanned, for: uuid)
         }
     }
 
     private func _openBluetoothSettings() {
-        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.systempreferences") else { return }
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.BluetoothSettings") else { return }
         NSWorkspace.shared.open(url)
     }
 
