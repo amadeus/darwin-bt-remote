@@ -6,6 +6,7 @@ extension View {
     func settingsFormStyle() -> some View {
         if #available(macOS 14.0, *) {
             formStyle(.grouped)
+                .softTopScrollEdge()
                 .contentMargins(.horizontal, 0, for: .scrollContent)
                 .contentMargins(.horizontal, 10, for: .scrollIndicators)
                 .contentMargins(.bottom, 10, for: .scrollIndicators)
@@ -14,10 +15,18 @@ extension View {
                 .padding(.horizontal, -10)
                 .padding(.bottom, -10)
                 .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
-            // Let the native scroll view extend beneath the translucent titlebar.
-            // An outer clip cuts it off at the content safe-area edge instead.
         } else {
             formStyle(.grouped)
+        }
+    }
+
+    @ViewBuilder
+    private func softTopScrollEdge() -> some View {
+        if #available(macOS 26.0, *) {
+            // Use the native progressive blur beneath the window header and tabs.
+            scrollEdgeEffectStyle(.soft, for: .top)
+        } else {
+            self
         }
     }
 }
