@@ -111,6 +111,8 @@ Custom runtime extraction locations selected outside the app are not discovered.
 
 If any stage fails, the app reports that removal is incomplete. Reopen the
 **downloaded** EXE to retry; do not interpret the tray closing alone as success.
+If retrying after updating to a fixed build, open the newly extracted EXE:
+the retry runs that EXE's cleanup helper without reinstalling the old service.
 After successful removal, reopening the downloaded EXE should perform a fresh
 installation and show **Connect a Mac…**, with no saved device. Pair inside the
 app and verify that switching and clipboard sharing work again.

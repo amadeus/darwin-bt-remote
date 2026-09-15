@@ -13,7 +13,10 @@ try {
     try { $ownsCleanupLock = $cleanupLock.WaitOne(10000) }
     catch [Threading.AbandonedMutexException] { $ownsCleanupLock = $true }
     if (-not $ownsCleanupLock) { throw 'Another installation or removal is running.' }
-    $cleanupPaths = @(ConvertFrom-Json ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($encodedPaths))))
+    # Assign directly: 5.1 emits the JSON array as one pipeline object, so @(...)
+    # would nest it and pass all paths to DirectoryInfo as one joined string.
+    # A typed array also keeps the final-path lookup correct for a single path.
+    [string[]]$cleanupPaths = ConvertFrom-Json ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($encodedPaths)))
     foreach ($cleanupPath in $cleanupPaths) {
         # Never traverse a replaced/junctioned parent into somebody else's data.
         for ($ancestor = [IO.DirectoryInfo]::new($cleanupPath); $null -ne $ancestor; $ancestor = $ancestor.Parent) {

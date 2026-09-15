@@ -15,10 +15,21 @@ source = (pathlib.Path(__file__).resolve().parents[1] / 'BTRemote.Companion' / '
 
 
 class RemovalFilesTests(unittest.TestCase):
-    def run_helper(self, paths):
+    def run_helper(self, paths, legacy_json=False):
         encoded = base64.b64encode(json.dumps([str(path) for path in paths]).encode()).decode()
+        # Windows' built-in 5.1 emits JSON arrays as one pipeline object. Reproduce
+        # that contract on newer PowerShell too, where enumeration is the default.
+        legacy = """
+if ($PSVersionTable.PSVersion.Major -ge 7) {
+    function ConvertFrom-Json {
+        param([string]$InputObject)
+        Microsoft.PowerShell.Utility\\ConvertFrom-Json -InputObject $InputObject -NoEnumerate
+    }
+}
+""" if legacy_json else ''
         script = ("$showResult = $false\n$removingProcess = 2147483647\n"
                   + f"$encodedPaths = '{encoded}'\n"
+                  + legacy
                   + source.replace('Global\\BTRemoteCompanionInstall', 'BTRemoteRemovalTest' + uuid.uuid4().hex))
         command = base64.b64encode(script.encode('utf-16le')).decode()
         return subprocess.run([args.powershell, '-NoProfile', '-NonInteractive', '-EncodedCommand', command],
@@ -55,6 +66,27 @@ class RemovalFilesTests(unittest.TestCase):
             self.assertIn('directory link', result.stderr)
             self.assertTrue((paths[0] / 'fixture.txt').exists())
             self.assertTrue((paths[-1] / 'removal-pending').exists())
+
+    def test_windows_powershell_array_output_keeps_paths_separate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory).resolve() / 'profile with spaces and café'
+            root.mkdir()
+            paths = self.fixture(root)
+            result = self.run_helper(paths, legacy_json=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(all(not path.exists() for path in paths),
+                            'Every decoded path must be removed separately, not joined into one path')
+
+    def test_single_path_retains_installation_cleanup_semantics(self):
+        for legacy_json in [False, True]:
+            with self.subTest(legacy_json=legacy_json), tempfile.TemporaryDirectory() as directory:
+                install = pathlib.Path(directory).resolve() / 'install'
+                install.mkdir()
+                (install / 'removal-pending').write_text('retry')
+                (install / 'app.exe').write_text('disposable')
+                result = self.run_helper([install], legacy_json=legacy_json)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertFalse(install.exists())
 
     def test_link_inside_owned_tree_does_not_delete_its_target(self):
         with tempfile.TemporaryDirectory() as directory:
