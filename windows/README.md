@@ -26,6 +26,8 @@ independent of the clipboard feature.
    The picker searches both regular Bluetooth and Bluetooth LE. After pairing,
    it verifies the selected Mac's LE services and saves that endpoint for the
    service; the separate pairing endpoint is retained for complete removal.
+   The list shows computers and your previously verified Mac by default. Use
+   **Show all devices** if your Mac's Bluetooth category is missing or incorrect.
 4. Run the matching new Mac build. In **Layout → Windows**, wait for **Windows
    edge return ready**. Choose the PC display there if its primary display is
    not the one next to your Mac. The PC uses the edge opposite the Mac edge.

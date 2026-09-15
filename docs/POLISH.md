@@ -89,6 +89,10 @@ when no allowed PC is ready. Other nearby Bluetooth devices may appear in the
 picker, so choose your Mac. The app verifies the HID and BTRemote services before
 saving. On the Mac, enable **Allow input** for the PC if it is not already allowed.
 Windows Bluetooth Settings should not be required for this normal flow.
+The picker shows computers and the previously verified Mac by default. **Show
+all devices** reveals other categories and devices whose category is unknown,
+without restarting the search. Device names are not used to identify computers.
+Try the checkbox both ways; pairing and service verification remain unchanged.
 
 Pairing/verification failure leaves the previous selected Mac intact. A bond
 created by that failed attempt is rolled back; an existing bond is not removed.

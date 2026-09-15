@@ -8,7 +8,8 @@ namespace BTRemote.Companion;
 // Pairing runs in the interactive tray's STA. Windows owns PIN/consent dialogs.
 internal sealed class MacPairing(MacCandidate candidate, Action<string> progress, CancellationToken stop) : IMacConnection
 {
-    internal static readonly string[] Properties = ["System.Devices.Aep.IsPaired", "System.Devices.Aep.DeviceAddress", "System.Devices.Aep.ProtocolId"];
+    internal const string MajorClassProperty = "System.Devices.Aep.Bluetooth.Cod.Major";
+    internal static readonly string[] Properties = ["System.Devices.Aep.IsPaired", "System.Devices.Aep.DeviceAddress", "System.Devices.Aep.ProtocolId", MajorClassProperty];
     private static readonly Guid ClassicProtocol = new("e0cbf06c-cd8b-4647-bb8a-263b43f0f974");
     internal static string Selector => string.Join(" OR ", new[] {
         BluetoothDevice.GetDeviceSelectorFromPairingState(true), BluetoothDevice.GetDeviceSelectorFromPairingState(false),
