@@ -37,7 +37,7 @@ internal sealed class TrayContext : ApplicationContext
         automaticItem.Click += async (_, _) => await ControlAsync("--startup", automaticItem.Checked ? "manual" : "auto");
         trayStartupItem.Click += async (_, _) => await ControlAsync("--tray-startup", trayStartupItem.Checked ? "off" : "on");
         removeItem.Click += async (_, _) => await RemoveAsync();
-        icon = new NotifyIcon { Icon = SystemIcons.Application, Text = "DeusKVM Companion", ContextMenuStrip = menu, Visible = true };
+        icon = new NotifyIcon { Icon = AppIcon.Image, Text = "DeusKVM Companion", ContextMenuStrip = menu, Visible = true };
         icon.DoubleClick += (_, _) => ShowSettings();
         refresh.Tick += (_, _) =>
         {

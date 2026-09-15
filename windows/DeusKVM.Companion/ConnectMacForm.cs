@@ -18,6 +18,7 @@ internal sealed class ConnectMacForm : Form
     private bool busy, closing;
     public ConnectMacForm()
     {
+        Icon = AppIcon.Image;
         Text = "Connect a Mac"; AutoScaleMode = AutoScaleMode.Dpi;
         ClientSize = new Size(540, 440); MinimumSize = new Size(480, 400); StartPosition = FormStartPosition.CenterParent;
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(16), ColumnCount = 1, RowCount = 5 };

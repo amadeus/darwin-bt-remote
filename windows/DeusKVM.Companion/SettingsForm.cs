@@ -17,6 +17,7 @@ internal sealed class SettingsForm : Form
 
     public SettingsForm(Func<string[], Task> control, Action connectMac, Func<Task> removeApp)
     {
+        Icon = AppIcon.Image;
         Text = "DeusKVM Companion"; AutoScaleMode = AutoScaleMode.Dpi;
         ClientSize = new Size(530, 490); MinimumSize = new Size(530, 490);
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(16), ColumnCount = 1, AutoScroll = true };

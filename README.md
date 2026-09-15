@@ -86,6 +86,23 @@ open .build/DerivedData/Build/Products/Debug/DeusKVM.app
 `project.yml` contains the development signing team; use your own signing
 configuration when building on another Mac. The deployment target is macOS 13.
 
+Mac builds target Apple Silicon only. For an optimized build, generate the
+project and build Release:
+
+```sh
+xcodegen generate
+xcodebuild -project DeusKVM.xcodeproj -scheme DeusKVM -configuration Release \
+  -destination 'generic/platform=macOS' -derivedDataPath .build/ReleaseDerivedData build
+```
+
+The app is in `.build/ReleaseDerivedData/Build/Products/Release/DeusKVM.app`.
+Release enables the hardened runtime and omits the debugger entitlement.
+Public distribution still requires Developer ID signing and notarization;
+the configured Apple Development identity is for local builds.
+
+The original keyboard app artwork is generated for both platforms with
+`swift scripts/artwork/GenerateAppIcon.swift` on macOS.
+
 The Windows companion requires the .NET 10 SDK to build. It can be cross-built
 on macOS:
 
