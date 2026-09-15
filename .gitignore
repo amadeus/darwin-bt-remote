@@ -27,3 +27,7 @@ vendor/bundle/
 .DS_Store
 /*.xcodeproj
 *.ipa
+
+windows/**/bin/
+windows/**/obj/
+windows/**/.vs/

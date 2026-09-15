@@ -1,0 +1,46 @@
+name: CI
+on:
+  push:
+    branches: ['**']
+  pull_request:
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install tools
+        run: brew install xcodegen swiftformat swiftlint
+      - name: Generate project
+        run: ci_scripts/ci_post_clone.sh
+      - name: Lint
+        run: swiftformat --lint . && swiftlint lint --strict --no-cache
+      - name: Build and test
+        run: >-
+          xcodebuild -project DeusKVM.xcodeproj -scheme DeusKVM
+          -configuration Debug -destination 'platform=macOS'
+          -derivedDataPath .build/DerivedData CODE_SIGNING_ALLOWED=NO build test
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build companion
+        run: dotnet build windows/DeusKVM.Companion.sln -c Release
+      - name: Test companion policies
+        run: dotnet test windows/DeusKVM.Companion.Tests -c Release --no-build
+      - name: Publish self-contained companion
+        run: >-
+          dotnet publish windows/DeusKVM.Companion/DeusKVM.Companion.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true
+          -p:DebugType=None -o .build/windows/win-x64
+      - name: Test cleanup on disposable files
+        run: python windows/tests/test_removal_files.py --powershell powershell
+      - name: Test tray handoff polling
+        shell: powershell
+        run: ./windows/tests/Test-TrayHandoffWait.ps1
+      - name: Test EXE installation and update lifecycle
+        shell: powershell
+        run: ./windows/tests/Test-ExecutableInstall.ps1 -Executable .build/windows/win-x64/DeusKVM.Companion.exe

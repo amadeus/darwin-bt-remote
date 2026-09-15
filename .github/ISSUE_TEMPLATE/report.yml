@@ -5,7 +5,7 @@ body:
     attributes:
       value: |
         ### Important
-        Before reporting a new issue, please check if it already exists in the [issue tracker](https://github.com/jqssun/darwin-bt-remote/issues).
+        Before reporting a new issue, please check if it already exists in the [issue tracker](https://github.com/amadeus/darwin-bt-remote/issues).
         
         We aim to keep things fast, lightweight, and responsive for pairing and general use across all platforms. If you notice any performance issues, please attach logs from both the host and target devices if possible.
    
