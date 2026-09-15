@@ -21,7 +21,7 @@ struct BTRemoteApp: App {
     }
 
     var body: some Scene {
-        WindowGroup(id: "controls") {
+        Window("Bluetooth Remote", id: "controls") {
             ContentView()
                 .modifier(AppEnvironment(lowEnergy: lowEnergy, central: central, names: deviceNames, coordinator: coordinator))
         }
