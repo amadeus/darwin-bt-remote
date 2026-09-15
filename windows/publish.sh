@@ -13,10 +13,10 @@ python3 - "$companion_output" <<'PY'
 from pathlib import Path
 import sys,zipfile
 root=Path(sys.argv[1])
-archive=root.parent / ('BTRemote-Companion-' + root.name + '.zip')
+archive=root.parent / ('DeusKVM-Companion-' + root.name + '.zip')
 with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as z:
     for p in sorted(root.iterdir()):
-        if p.name in {'BTRemote.Companion.exe', 'README.md'}:
+        if p.name in {'DeusKVM.Companion.exe', 'README.md'}:
             z.write(p,p.name)
 print(archive.resolve())
 PY

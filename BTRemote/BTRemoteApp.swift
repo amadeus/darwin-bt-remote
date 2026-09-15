@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct BTRemoteApp: App {
+struct DeusKVMApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @StateObject private var lowEnergy: HIDPeripheral
     @StateObject private var central: HIDCentral
@@ -21,7 +21,7 @@ struct BTRemoteApp: App {
     }
 
     var body: some Scene {
-        Window("Bluetooth Remote", id: "controls") {
+        Window("DeusKVM", id: "controls") {
             ContentView()
                 .modifier(AppEnvironment(lowEnergy: lowEnergy, central: central, names: deviceNames, coordinator: coordinator))
         }
@@ -50,7 +50,7 @@ struct BTRemoteApp: App {
                     .permissionGranted || (!coordinator.isRemote && !coordinator.targetAvailable))
             Toggle(L10n.Layout.lock, isOn: $coordinator.locked)
             Divider()
-            Button(coordinator.isEnabled ? "Disable BTRemote" : "Enable BTRemote") {
+            Button(coordinator.isEnabled ? "Disable DeusKVM" : "Enable DeusKVM") {
                 coordinator.setEnabled(!coordinator.isEnabled)
             }
             Button(L10n.Layout.quit) { NSApp.terminate(nil) }

@@ -11,7 +11,7 @@ internal sealed class DesktopClipboard : IDisposable
     private volatile uint permittedEpoch;
     public DesktopClipboard(Action<DesktopMessage> send)
     {
-        var thread = new Thread(() => Run(send)) { IsBackground = true, Name = "BTRemote clipboard" };
+        var thread = new Thread(() => Run(send)) { IsBackground = true, Name = "DeusKVM clipboard" };
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
     }
@@ -31,7 +31,7 @@ internal sealed class DesktopClipboard : IDisposable
     {
         using var context = new ApplicationContext();
         var window = new NativeWindow();
-        window.CreateHandle(new CreateParams { Caption = "BTRemote clipboard", Parent = new IntPtr(-3) });
+        window.CreateHandle(new CreateParams { Caption = "DeusKVM clipboard", Parent = new IntPtr(-3) });
         using var timer = new System.Windows.Forms.Timer { Interval = 200 };
         bool? available = null;
         var enabled = false; var priming = false; var yield = false;

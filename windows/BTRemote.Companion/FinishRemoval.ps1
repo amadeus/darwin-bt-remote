@@ -48,12 +48,12 @@ try {
     }
     if ($showResult) {
         Add-Type -AssemblyName System.Windows.Forms
-        [void][Windows.Forms.MessageBox]::Show('BTRemote was removed. You can now delete the downloaded EXE and ZIP.', 'BTRemote removed')
+        [void][Windows.Forms.MessageBox]::Show('DeusKVM was removed. You can now delete the downloaded EXE and ZIP.', 'DeusKVM removed')
     }
 } catch {
     if ($showResult) {
         Add-Type -AssemblyName System.Windows.Forms
-        [void][Windows.Forms.MessageBox]::Show("Removal did not finish. Reopen the downloaded EXE to retry.`n`n$($_.Exception.Message)", 'BTRemote removal incomplete')
+        [void][Windows.Forms.MessageBox]::Show("Removal did not finish. Reopen the downloaded EXE to retry.`n`n$($_.Exception.Message)", 'DeusKVM removal incomplete')
     } else { [Console]::Error.WriteLine($_.Exception.Message) }
     exit 1
 } finally {

@@ -35,11 +35,11 @@ enum StatusBarConnectionState: Equatable {
 
     var label: String {
         switch self {
-        case .disabled: "BTRemote disabled"
-        case .unavailable: "BTRemote — Bluetooth unavailable"
-        case .searching: "BTRemote — searching for a PC"
-        case .connecting: "BTRemote — connecting to PC"
-        case .ready: "BTRemote ready"
+        case .disabled: "DeusKVM disabled"
+        case .unavailable: "DeusKVM — Bluetooth unavailable"
+        case .searching: "DeusKVM — searching for a PC"
+        case .connecting: "DeusKVM — connecting to PC"
+        case .ready: "DeusKVM ready"
         }
     }
 }

@@ -11,7 +11,7 @@ struct LayoutSettingsView: View {
                 Label(coordinator.isRemote ? L10n.Layout.remote : L10n.Layout.local, systemImage: "computermouse")
                 Text(L10n.Layout.targetHint).font(.caption).foregroundStyle(.secondary)
                 if !coordinator
-                    .isEnabled { Text("BTRemote is disabled. Enable it in Settings or the menu bar.").foregroundStyle(.secondary) }
+                    .isEnabled { Text("DeusKVM is disabled. Enable it in Settings or the menu bar.").foregroundStyle(.secondary) }
                 if coordinator.isEnabled, !coordinator.targetAvailable { Text(L10n.Layout.noTarget).foregroundStyle(.orange) }
                 if coordinator.isEnabled, !coordinator.permissionGranted {
                     Button(L10n.DirectInput.openSettings) { AccessibilityPermission.request() }
@@ -19,7 +19,7 @@ struct LayoutSettingsView: View {
                 }
                 if coordinator.isEnabled, coordinator.permissionGranted, !coordinator.keyboardMonitoringReady {
                     Button("Enable complete keyboard capture") { KeyboardMonitoringPermission.request() }
-                    Text("Allow BTRemote in Input Monitoring, then reopen it to forward Print Screen, Scroll Lock, and Pause.")
+                    Text("Allow DeusKVM in Input Monitoring, then reopen it to forward Print Screen, Scroll Lock, and Pause.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 if coordinator.secureInput { Text(L10n.Layout.secureInput).foregroundStyle(.orange) }

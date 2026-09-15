@@ -1,6 +1,7 @@
 import Foundation
 
 enum AppSettings {
+    // Keep preference keys stable when updating existing BTRemote installations.
     static let enabledKey = "BTRemote.enabled"
     static let clipboardEnabledKey = "BTRemote.clipboardEnabled"
     static let allowedHostsKey = "BTRemote.allowedHosts"
@@ -22,5 +23,5 @@ enum AppSettings {
     static let toggleHotkeyEnabledKey = "BTRemote.toggleHotkeyEnabled"
     static let defaultCornerSize = 0.0
 
-    static let repoURL = URL(string: "https://github.com/jqssun/darwin-bt-remote")!
+    static let repoURL = URL(string: "https://github.com/amadeus/darwin-bt-remote")!
 }

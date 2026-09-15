@@ -1,4 +1,4 @@
-# Windows companion
+# DeusKVM Windows companion
 
 The service owns Bluetooth recovery, switching and plain-text clipboard
 coordination. It launches the desktop worker; the optional tray configures the
@@ -13,14 +13,14 @@ independent of the clipboard feature.
 
 ## Install and configure
 
-1. Keep the existing Mac pairing and leave BTRemote running on the Mac.
-2. Extract the ZIP and open **BTRemote.Companion.exe**. Approve the Windows
+1. Keep the existing Mac pairing and leave DeusKVM running on the Mac.
+2. Extract the ZIP and open **DeusKVM.Companion.exe**. Approve the Windows
    administrator prompt to install or update; the companion window opens
    automatically afterward. No scripts or .NET installation are needed.
 3. For fresh pairing, open **System Settings → Bluetooth** on the Mac and leave
    it open. Click **Connect a Mac…** in the companion, choose your Mac and approve
-   any Windows/Mac pairing prompts. Keep BTRemote enabled on the Mac; it advertises
-   when no allowed PC is ready. The companion verifies BTRemote before saving.
+   any Windows/Mac pairing prompts. Keep DeusKVM enabled on the Mac; it advertises
+   when no allowed PC is ready. The companion verifies DeusKVM before saving.
    Allow input for this PC on the Mac if needed. Updates retain your selection;
    use **Change Mac…** to select a different Mac or reuse an existing pairing.
    The picker searches both regular Bluetooth and Bluetooth LE. After pairing,
@@ -62,7 +62,7 @@ third-party servers are used at runtime.
 - **Show tray icon at sign-in:** open only the optional tray after users sign
   in. Enabled once on this upgrade, then preserved across updates. Independent
   of the service-startup checkbox; it does not start a stopped service.
-- **Remove BTRemote from this PC…:** complete removal, including the selected
+- **Remove DeusKVM from this PC…:** complete removal, including the selected
   Mac pairing, service/workers, startup entry, shortcut, settings/logs and
   installed files. Wait for the final result message. If it fails, reopen the
   downloaded EXE to retry. Other pairings and Windows execution history remain.
@@ -142,11 +142,11 @@ Only plain text crosses; no files, images or rich formatting. Known private
 clipboard markers are respected, but unmarked password text is indistinguishable
 from ordinary text. Test privacy with disposable text, not real credentials.
 Full behavior, limits and development checks are in [docs/CLIPBOARD.md](../docs/CLIPBOARD.md).
-Native clipboard behavior and BLE transfer timing still need the manual test.
+Basic two-way text sharing is user-confirmed; the stress and privacy checks above remain useful for regressions.
 
 ## Open or update
 
-Use **BTRemote Companion** in the Start menu, or open the downloaded EXE again.
+Use **DeusKVM Companion** in the Start menu, or open the downloaded EXE again.
 If the tray is already running, its window reopens. An identical EXE opens the
 installed app without reinstalling. A different build updates the installation,
 automatically closes the previous companion, then opens the new window.
@@ -155,7 +155,7 @@ preserved. First installation starts the service with automatic startup enabled.
 The UI runs with the permissions of the user who opened it; only installation
 and service changes request administrator permission.
 
-Use the **Remove BTRemote from this PC…** button/menu for removal. No separate
+Use the **Remove DeusKVM from this PC…** button/menu for removal. No separate
 uninstall script is needed. It deliberately removes the selected Windows pairing;
 the Mac's allow list and downloaded EXE/ZIP remain unchanged.
 
@@ -165,11 +165,11 @@ The configured hotkey and **Switch to PC** button center the Windows pointer on
 the selected display. Edge crossings retain proportional placement. Both builds
 are required; existing pairings and the HID descriptor are unchanged.
 
-Mac Settings and its menu now share **Disable BTRemote / Enable BTRemote**.
+Mac Settings and its menu now share **Disable DeusKVM / Enable DeusKVM**.
 Disabling restores local control, stops advertising/input capture/clipboard
 sharing, and changes the menu icon to a pause symbol. This state survives app
 restart. Enable to reconnect using the saved pairing. Mac Settings also offers
-an opt-in **Launch BTRemote at login** control.
+an opt-in **Launch DeusKVM at login** control.
 
 For the complete test sequence, see `docs/POLISH.md` in the repository. Test
 removal last because it intentionally removes the selected Mac pairing.
@@ -205,3 +205,16 @@ Win32 error in status.json rather than replacing it with "Waiting for signed-in
 console desktop". No Mac update or Bluetooth re-pairing is needed for this fix.
 
 Windows job session constraint: [AssignProcessToJobObject](https://learn.microsoft.com/en-us/windows/win32/api/jobapi2/nf-jobapi2-assignprocesstojobobject).
+
+## Updating from BTRemote
+
+Open **DeusKVM.Companion.exe** from the new ZIP. The updater preserves the
+selected Mac, Bluetooth pairing, service running/stopped state and both startup
+preferences. The service display name and Start menu shortcut become **DeusKVM
+Companion**; the old shortcut is removed.
+
+For compatibility, the service ID and startup registry value remain
+`BTRemoteCompanion`, installed files remain under `C:\Program Files\BTRemote Companion`,
+the installed executable remains `BTRemote.Companion.exe`, and diagnostics stay
+in `C:\ProgramData\BTRemote`. These are internal installation identities, not a
+second app. Complete removal handles both names and their extraction caches.

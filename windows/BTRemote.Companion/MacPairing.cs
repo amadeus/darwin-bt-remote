@@ -31,13 +31,13 @@ internal sealed class MacPairing(MacCandidate candidate, Action<string> progress
         {
             DevicePairingResultStatus.Paired => true,
             DevicePairingResultStatus.AlreadyPaired => false,
-            _ => throw new InvalidOperationException($"Windows could not pair with {candidate.Name}: {result.Status}. Check that BTRemote is enabled and advertising on the Mac, then try again.")
+            _ => throw new InvalidOperationException($"Windows could not pair with {candidate.Name}: {result.Status}. Check that DeusKVM is enabled and advertising on the Mac, then try again.")
         };
     }
     public async Task<CompanionSettings> Verify()
     {
         stop.ThrowIfCancellationRequested();
-        progress("Checking that this Mac is running BTRemote…");
+        progress("Checking that this Mac is running DeusKVM…");
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(stop);
         timeout.CancelAfter(TimeSpan.FromSeconds(30));
         using var classic = candidate.Transport == MacTransport.Classic
@@ -63,7 +63,7 @@ internal sealed class MacPairing(MacCandidate candidate, Action<string> progress
             finally { foreach (var service in result.Services) service.Dispose(); }
             await Task.Delay(500, timeout.Token);
         }
-        throw new InvalidOperationException("BTRemote was not found on this device. Enable BTRemote on the Mac and try again. Your previous Mac selection has not changed.");
+        throw new InvalidOperationException("DeusKVM was not found on this device. Enable DeusKVM on the Mac and try again. Your previous Mac selection has not changed.");
     }
     public async Task Save(CompanionSettings settings)
     {

@@ -93,7 +93,7 @@ final class CompanionService: ObservableObject {
         clients[central.identifier] = client
         if !subscribedHosts.contains(central.identifier) { subscribedHosts.insert(central.identifier) }
         if sendHello {
-            sendJSON(CompanionHello(v: 1, role: "mac", name: "BTRemote", chunk: 20, clipboard: 1), type: .hello, to: central.identifier)
+            sendJSON(CompanionHello(v: 1, role: "mac", name: "DeusKVM", chunk: 20, clipboard: 1), type: .hello, to: central.identifier)
         }
     }
 

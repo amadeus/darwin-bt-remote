@@ -58,7 +58,7 @@ internal sealed class CompanionService : ServiceBase
                 var settings = ReadSettings();
                 if (settings is null)
                 {
-                    worker = new("Not configured", "Open BTRemote Companion and choose Connect a Mac.", DateTimeOffset.UtcNow);
+                    worker = new("Not configured", "Open DeusKVM Companion and choose Connect a Mac.", DateTimeOffset.UtcNow);
                     SaveStatus();
                     await Task.Delay(TimeSpan.FromSeconds(2), stop);
                     continue;

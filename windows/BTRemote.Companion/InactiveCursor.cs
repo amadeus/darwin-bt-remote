@@ -15,7 +15,7 @@ internal sealed class InactiveCursor : NativeWindow, IDisposable
         mouseHook = OnMouse;
         CreateHandle(new CreateParams
         {
-            Caption = "BTRemote inactive cursor",
+            Caption = "DeusKVM inactive cursor",
             Style = unchecked((int)0x80000000), // WS_POPUP
             ExStyle = 0x08080088, // NOACTIVATE | LAYERED | TOOLWINDOW | TOPMOST
             Width = 1,

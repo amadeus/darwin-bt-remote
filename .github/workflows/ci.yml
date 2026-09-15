@@ -40,4 +40,4 @@ jobs:
         run: python windows/tests/test_removal_files.py --powershell powershell
       - name: Test EXE installation and update lifecycle
         shell: powershell
-        run: ./windows/tests/Test-ExecutableInstall.ps1 -Executable .build/windows/win-x64/BTRemote.Companion.exe
+        run: ./windows/tests/Test-ExecutableInstall.ps1 -Executable .build/windows/win-x64/DeusKVM.Companion.exe

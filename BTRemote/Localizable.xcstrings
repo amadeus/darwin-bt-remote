@@ -95,7 +95,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bluetooth Remote"
+            "value": "DeusKVM"
           }
         }
       }
@@ -106,7 +106,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "BTRemote"
+            "value": "DeusKVM"
           }
         }
       }
@@ -447,7 +447,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Could not capture input. Allow BT Remote in Accessibility and Input Monitoring, then try again."
+            "value": "Could not capture input. Allow DeusKVM in Accessibility and Input Monitoring, then try again."
           }
         }
       }
@@ -1393,7 +1393,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quit Bluetooth Remote"
+            "value": "Quit DeusKVM"
           }
         }
       }

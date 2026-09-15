@@ -12,7 +12,7 @@ internal sealed class TrayContext : ApplicationContext
     private readonly ToolStripMenuItem stopItem = new("Stop Service");
     private readonly ToolStripMenuItem automaticItem = new("Start automatically with Windows");
     private readonly ToolStripMenuItem trayStartupItem = new("Show tray icon at sign-in");
-    private readonly ToolStripMenuItem removeItem = new("Remove BTRemote from this PC…");
+    private readonly ToolStripMenuItem removeItem = new("Remove DeusKVM from this PC…");
     private readonly System.Windows.Forms.Timer refresh = new() { Interval = 2000 };
     private SettingsForm? settings;
     private bool busy;
@@ -37,7 +37,7 @@ internal sealed class TrayContext : ApplicationContext
         automaticItem.Click += async (_, _) => await ControlAsync("--startup", automaticItem.Checked ? "manual" : "auto");
         trayStartupItem.Click += async (_, _) => await ControlAsync("--tray-startup", trayStartupItem.Checked ? "off" : "on");
         removeItem.Click += async (_, _) => await RemoveAsync();
-        icon = new NotifyIcon { Icon = SystemIcons.Application, Text = "BTRemote Companion", ContextMenuStrip = menu, Visible = true };
+        icon = new NotifyIcon { Icon = SystemIcons.Application, Text = "DeusKVM Companion", ContextMenuStrip = menu, Visible = true };
         icon.DoubleClick += (_, _) => ShowSettings();
         refresh.Tick += (_, _) =>
         {
@@ -73,13 +73,13 @@ internal sealed class TrayContext : ApplicationContext
             stopItem.Enabled = !busy && state == ServiceControllerStatus.Running;
             automaticItem.Enabled = !busy;
             automaticItem.Checked = service.StartType == ServiceStartMode.Automatic;
-            icon.Text = $"BTRemote: {state}";
+            icon.Text = $"DeusKVM: {state}";
             settings?.RefreshControls(state, automaticItem.Checked, trayStartupItem.Checked, busy);
             settings?.RefreshStatus(state.ToString());
         }
         catch (Exception error) when (error is InvalidOperationException or Win32Exception or UnauthorizedAccessException or System.Security.SecurityException)
         {
-            statusItem.Text = "Service unavailable — reopen BTRemote Companion to repair";
+            statusItem.Text = "Service unavailable — reopen DeusKVM Companion to repair";
             startItem.Enabled = stopItem.Enabled = automaticItem.Enabled = false;
             settings?.RefreshControls(null, false, trayStartupItem.Checked, busy);
             settings?.RefreshStatus("Not installed or inaccessible");
@@ -107,8 +107,8 @@ internal sealed class TrayContext : ApplicationContext
     {
         if (busy) return;
         if (MessageBox.Show(settings,
-            "Remove BTRemote, its service, startup settings and saved data from this PC? This also removes the selected Mac's Windows Bluetooth pairing. Other pairings are kept.",
-            "Remove BTRemote from this PC", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning,
+            "Remove DeusKVM, its service, startup settings and saved data from this PC? This also removes the selected Mac's Windows Bluetooth pairing. Other pairings are kept.",
+            "Remove DeusKVM from this PC", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning,
             MessageBoxDefaultButton.Button2) != DialogResult.OK) return;
         await ControlAsync("--remove");
     }
@@ -120,7 +120,7 @@ internal sealed class TrayContext : ApplicationContext
     }
 
     internal static void ShowError(Exception error) =>
-        MessageBox.Show(error.Message, "BTRemote Companion", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        MessageBox.Show(error.Message, "DeusKVM Companion", MessageBoxButtons.OK, MessageBoxIcon.Error);
 
     protected override void Dispose(bool disposing)
     {

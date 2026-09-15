@@ -47,8 +47,8 @@ internal static class Program
             if (trayOnly && (File.Exists(Paths.RemovalMarker) || !ServiceInstaller.IsInstalledLocation || ServiceInstaller.NeedsInstall())) return 0;
             if (File.Exists(Paths.RemovalMarker))
             {
-                if (MessageBox.Show("A previous removal did not finish. Retry removing BTRemote and its selected Mac pairing?",
-                    "Finish removing BTRemote", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) == DialogResult.OK)
+                if (MessageBox.Show("A previous removal did not finish. Retry removing DeusKVM and its selected Mac pairing?",
+                    "Finish removing DeusKVM", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) == DialogResult.OK)
                     ServiceCommands.ElevateExecutableAsync(Environment.ProcessPath!, "--remove").GetAwaiter().GetResult();
                 return 0;
             }
@@ -73,7 +73,7 @@ internal static class Program
         catch (Exception error)
         {
             if (quiet) Console.Error.WriteLine(error);
-            else MessageBox.Show(error.Message, "BTRemote Companion", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            else MessageBox.Show(error.Message, "DeusKVM Companion", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return 1;
         }
     }

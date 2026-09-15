@@ -13,11 +13,11 @@ internal sealed class SettingsForm : Form
     private readonly Button stopService = new() { Text = "Stop Service", AutoSize = true };
     private readonly CheckBox automatic = new() { Text = "Start service with Windows (even when signed out)", AutoSize = true };
     private readonly CheckBox trayStartup = new() { Text = "Show tray icon when users sign in", AutoSize = true };
-    private readonly Button remove = new() { Text = "Remove BTRemote from this PC…", AutoSize = true };
+    private readonly Button remove = new() { Text = "Remove DeusKVM from this PC…", AutoSize = true };
 
     public SettingsForm(Func<string[], Task> control, Action connectMac, Func<Task> removeApp)
     {
-        Text = "BTRemote Companion"; AutoScaleMode = AutoScaleMode.Dpi;
+        Text = "DeusKVM Companion"; AutoScaleMode = AutoScaleMode.Dpi;
         ClientSize = new Size(530, 490); MinimumSize = new Size(530, 490);
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(16), ColumnCount = 1, AutoScroll = true };
         layout.Controls.Add(selected); layout.Controls.Add(connect);
@@ -25,7 +25,7 @@ internal sealed class SettingsForm : Form
         var buttons = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0, 12, 0, 0) };
         buttons.Controls.Add(startService); buttons.Controls.Add(stopService); layout.Controls.Add(buttons);
         layout.Controls.Add(automatic); layout.Controls.Add(trayStartup);
-        layout.Controls.Add(new Label { Text = "Closing this window leaves the service running. Open BTRemote Companion again or use its tray icon to return here.",
+        layout.Controls.Add(new Label { Text = "Closing this window leaves the service running. Open DeusKVM Companion again or use its tray icon to return here.",
             AutoSize = true, MaximumSize = new Size(460, 0), Margin = new Padding(0, 12, 0, 12) });
         layout.Controls.Add(remove); Controls.Add(layout);
         connect.Click += (_, _) => connectMac();
@@ -51,7 +51,7 @@ internal sealed class SettingsForm : Form
             selected.Text = saved is null ? "No Mac connected" : $"Mac: {saved.DeviceName}";
             connect.Text = saved is null ? "Connect a Mac…" : "Change Mac…";
             state.Text = $"Service: {serviceState}";
-            if (saved is null) { detail.Text = "Connect your Mac here, then enable Allow input in BTRemote on the Mac."; return; }
+            if (saved is null) { detail.Text = "Connect your Mac here, then enable Allow input in DeusKVM on the Mac."; return; }
             var snapshot = JsonFiles.Read<ServiceSnapshot>(Paths.Status);
             if (serviceState != "Running" || snapshot is null) { detail.Text = "Bluetooth recovery is not running."; return; }
             if (!ServicePolicy.IsFresh(snapshot.UpdatedAt, DateTimeOffset.UtcNow)) { detail.Text = "Waiting for a fresh service status…"; return; }

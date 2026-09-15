@@ -144,7 +144,7 @@ final class EdgeSwitchCoordinator: ObservableObject {
 
     func setEnabled(_ value: Bool) {
         guard value != isEnabled else { return }
-        if !value { returnLocal(reason: "BTRemote disabled") }
+        if !value { returnLocal(reason: "DeusKVM disabled") }
         isEnabled = value
         UserDefaults.standard.set(value, forKey: AppSettings.enabledKey)
         if !value {
@@ -225,7 +225,7 @@ final class EdgeSwitchCoordinator: ObservableObject {
         currentTarget = isEnabled && lowEnergy.state == .poweredOn ? lowEnergy.hostPolicy.target : nil
         let available = currentTarget != nil
         if targetAvailable != available { targetAvailable = available }
-        if isEnabled { _refreshCompanion() } else { companionStatus = "BTRemote is disabled" }
+        if isEnabled { _refreshCompanion() } else { companionStatus = "DeusKVM is disabled" }
         _refreshConnectionState()
         refreshClipboard()
         if isRemote, !permissionGranted || secureInput || captureTarget != currentTarget || geometry == nil {

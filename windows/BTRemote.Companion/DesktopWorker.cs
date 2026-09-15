@@ -232,7 +232,7 @@ internal sealed class DesktopWorker : ApplicationContext
         public RawWindow(DesktopWorker owner)
         {
             this.owner = owner;
-            CreateHandle(new CreateParams { Caption = "BTRemote desktop input", Parent = new IntPtr(-3) });
+            CreateHandle(new CreateParams { Caption = "DeusKVM desktop input", Parent = new IntPtr(-3) });
         }
         protected override void WndProc(ref System.Windows.Forms.Message message)
         {

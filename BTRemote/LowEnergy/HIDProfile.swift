@@ -37,8 +37,8 @@ enum HIDProfile {
     /// battery level (0x2A19), little-endian
     static let externalReportReferenceValue = Data([0x19, 0x2A])
 
-    static let manufacturerNameValue = Data("BTRemote".utf8)
-    static let modelNumberValue = Data("BTRemote-1.0".utf8)
+    static let manufacturerNameValue = Data("DeusKVM".utf8)
+    static let modelNumberValue = Data("DeusKVM-1.0".utf8)
 
     /// PnP ID: VendorIDSource(BTSIG=1), VendorID 0xFFFF (test), ProductID 0x0001, Version 0x0100
     static let pnpIDValue = Data([0x01, 0xFF, 0xFF, 0x01, 0x00, 0x00, 0x01])

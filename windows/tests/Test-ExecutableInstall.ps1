@@ -9,7 +9,7 @@ $binary = Join-Path $install 'BTRemote.Companion.exe'
 $data = Join-Path $env:ProgramData 'BTRemote'
 $runKey = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run'
 $runName = 'BTRemoteCompanion'
-$shortcut = Join-Path ([Environment]::GetFolderPath('CommonPrograms')) 'BTRemote Companion.lnk'
+$shortcut = Join-Path ([Environment]::GetFolderPath('CommonPrograms')) 'DeusKVM Companion.lnk'
 function Get-TrayStartupCommand {
     # Get-ItemPropertyValue throws a terminating error for an absent value in
     # Windows PowerShell 5.1, even with -ErrorAction SilentlyContinue. Read the
@@ -20,9 +20,10 @@ function Get-TrayStartupCommand {
     if ($null -ne $property) { return $property.Value }
     return $null
 }
+$legacyShortcut = Join-Path ([Environment]::GetFolderPath('CommonPrograms')) 'BTRemote Companion.lnk'
 if ((Get-Service BTRemoteCompanion -ErrorAction SilentlyContinue) -or
     (Test-Path -LiteralPath $install) -or (Test-Path -LiteralPath $data) -or
-    (Test-Path -LiteralPath $shortcut) -or
+    (Test-Path -LiteralPath $shortcut) -or (Test-Path -LiteralPath $legacyShortcut) -or
     ($null -ne (Get-TrayStartupCommand))) {
     throw 'This test requires a clean machine without an existing BTRemote installation.'
 }
@@ -63,6 +64,7 @@ function Assert-Service {
     param([string] $State, [string] $Startup)
     $service = Get-Service BTRemoteCompanion
     try {
+        if ($service.DisplayName -ne 'DeusKVM Companion') { throw 'Service display name was not updated.' }
         if ($service.Status.ToString() -ne $State -or $service.StartType.ToString() -ne $Startup) {
             throw "Expected $State/$Startup, got $($service.Status)/$($service.StartType)"
         }
@@ -110,6 +112,11 @@ try {
     $settings = Join-Path $data 'settings.json'
     [IO.File]::WriteAllText($settings, '{"DeviceId":"test-selected-mac","DeviceName":"Keep this Mac"}')
     $before = (Get-FileHash -LiteralPath $settings).Hash
+    # Simulate the old display name/shortcut while retaining the installed
+    # service identity, EXE location and preferences used by existing releases.
+    Move-Item -LiteralPath $shortcut -Destination $legacyShortcut
+    & "$env:SystemRoot\System32\sc.exe" config BTRemoteCompanion DisplayName= 'BTRemote Companion'
+    if ($LASTEXITCODE -ne 0) { throw 'Could not prepare the legacy display-name fixture.' }
     Write-Host 'Checking update with the installed tray open.'
     $tray = Start-CompanionProcess $binary
     try {
@@ -118,6 +125,7 @@ try {
         if (-not $tray.WaitForExit(10000)) { throw 'Update did not close the previous tray.' }
     } finally { $tray.Dispose() }
     Assert-Service 'Stopped' 'Manual'
+    if ((Test-Path -LiteralPath $legacyShortcut) -or -not (Test-Path -LiteralPath $shortcut)) { throw 'Start menu shortcut was not migrated.' }
     if ($null -ne (Get-TrayStartupCommand)) { throw 'Update re-enabled tray startup.' }
     if ((Get-FileHash -LiteralPath $settings).Hash -ne $before) { throw 'Update changed the selected Mac.' }
     if ((Get-FileHash -LiteralPath $binary).Hash -ne (Get-FileHash -LiteralPath $source).Hash) { throw 'Wrong installed EXE.' }
@@ -162,7 +170,7 @@ try {
         Start-Sleep -Milliseconds 100
     }
     if (Get-Service BTRemoteCompanion -ErrorAction SilentlyContinue) { throw 'Removal left the service registered.' }
-    if (Test-Path -LiteralPath $shortcut) { throw 'Removal left the shortcut.' }
+    if ((Test-Path -LiteralPath $shortcut) -or (Test-Path -LiteralPath $legacyShortcut)) { throw 'Removal left a shortcut.' }
     if ($null -ne (Get-TrayStartupCommand)) { throw 'Removal left tray startup enabled.' }
     if (Test-Path -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\BTRemoteCompanion') { throw 'Removal left its event-source registration.' }
     Write-Host 'EXE installation, update, startup, reopening and removal passed.'
@@ -197,7 +205,7 @@ try {
         $eventSource = 'HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\BTRemoteCompanion'
         if (Test-Path -LiteralPath $eventSource) { Remove-Item -LiteralPath $eventSource -Recurse -Force }
     } catch { $cleanupErrors.Add($_.ToString()) }
-    foreach ($path in @($shortcut, $install, $data)) {
+    foreach ($path in @($shortcut, $legacyShortcut, $install, $data)) {
         try {
             if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Recurse -Force }
         } catch { $cleanupErrors.Add($_.ToString()) }

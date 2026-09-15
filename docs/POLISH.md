@@ -7,12 +7,12 @@ computer-use interaction test was performed on the user's machines.
 
 ## Update tonight
 
-1. On Windows, extract `.build/windows/BTRemote-Companion-win-x64.zip` and open
-   `BTRemote.Companion.exe`. Approve its normal update prompt. It closes the old
+1. On Windows, extract `.build/windows/DeusKVM-Companion-win-x64.zip` and open
+   `DeusKVM.Companion.exe`. Approve its normal update prompt. It closes the old
    companion and preserves the selected Mac and service running/startup state.
    There is no separate script to run and no need to stop the service first.
-2. On the Mac, quit BTRemote and reopen
-   `.build/DerivedData/Build/Products/Debug/BTRemote.app` from this checkout.
+2. On the Mac, quit DeusKVM and reopen
+   `.build/DerivedData/Build/Products/Debug/DeusKVM.app` from this checkout.
 3. Keep the existing pairing for the initial checks. Complete removal is the
    last test below, because it intentionally removes that Windows pairing.
 
@@ -32,12 +32,12 @@ RESUME behavior and does not unexpectedly warp the pointer.
 
 ### Mac enable/disable
 
-Click **Disable BTRemote** in Mac Settings or its menu. The menu icon should
+Click **Disable DeusKVM** in Mac Settings or its menu. The menu icon should
 change to a pause symbol, advertising should stop, and edge/hotkey entry should
 stop. Clipboard changes should stay local. If disabled while remote, local
 Mac control is restored first.
 
-The same control becomes **Enable BTRemote**. Re-enable, allow the Windows
+The same control becomes **Enable DeusKVM**. Re-enable, allow the Windows
 service a few seconds to reconnect, and test switching/clipboard again without
 re-pairing. Repeat disable/re-enable quickly once. Quit/reopen while disabled:
 it should remain disabled, retaining the selected/allowed device and layout.
@@ -71,22 +71,22 @@ that the service still works without the icon. Reopen the EXE to get Settings.
 Windows startup policies/Startup Apps controls can override automatic launch;
 Windows also decides when during login to run registered startup apps.
 
-On the Mac, **Launch BTRemote at login** is opt-in. The toggle reads the real
+On the Mac, **Launch DeusKVM at login** is opt-in. The toggle reads the real
 SMAppService registration; if macOS requires approval, use **Allow in Login
 Items…**. Enable and test a later login, then disable if unwanted. Disabled
-BTRemote remains disabled even when it starts at login.
+DeusKVM remains disabled even when it starts at login.
 
 ### Pair inside the companion
 
 Open **Change Mac…** and select the already paired Mac first. It should verify
-BTRemote and save without removing/recreating that bond. Cancel another attempt
+DeusKVM and save without removing/recreating that bond. Cancel another attempt
 and check that the previous selection still works.
 
 For fresh pairing, leave **System Settings → Bluetooth** open on the Mac, then
 use **Connect a Mac…**, choose the Mac and approve Windows'
-pairing prompt and any Mac prompt. Enable BTRemote on the Mac; it must advertise
+pairing prompt and any Mac prompt. Enable DeusKVM on the Mac; it must advertise
 when no allowed PC is ready. Other nearby Bluetooth devices may appear in the
-picker, so choose your Mac. The app verifies the HID and BTRemote services before
+picker, so choose your Mac. The app verifies the HID and DeusKVM services before
 saving. On the Mac, enable **Allow input** for the PC if it is not already allowed.
 Windows Bluetooth Settings should not be required for this normal flow.
 The picker shows computers and the previously verified Mac by default. **Show
@@ -98,25 +98,25 @@ Pairing/verification failure leaves the previous selected Mac intact. A bond
 created by that failed attempt is rolled back; an existing bond is not removed.
 Rollback failure is reported explicitly. If cancellation occurs during a Windows
 pairing prompt, finish/dismiss that prompt so the attempt can settle safely.
-The Mac's actual first-pair behavior still needs this hardware test.
+Amadeus confirmed the corrected in-app pairing flow works.
 
 Discovery correction (September 14): Amadeus confirmed the Mac was absent in
 both lists until Mac Bluetooth settings were opened, then visible only in
 Windows Settings. The original picker only queried LE endpoints. It now scans
 regular Bluetooth as well, pairs the chosen endpoint and resolves that Mac's
 public Bluetooth address to a verified LE endpoint for the service. It does not
-match devices by name. The new path builds and passes 83 core tests; hardware
-pairing and subsequent cleanup still need confirmation.
+match devices by name. Pairing and subsequent cleanup were later confirmed by
+Amadeus; retain these checks for updates.
 
 ### Complete removal — test last
 
-Choose **Remove BTRemote from this PC…** in Settings or the tray and confirm.
+Choose **Remove DeusKVM from this PC…** in Settings or the tray and confirm.
 It removes the selected Mac's Windows pairing, stops/closes the workers and
 tray, unregisters the service and its event source, removes the tray startup
 entry and shortcut, and deletes settings, logs, installed app files and standard
-BTRemote .NET extraction caches. Other pairings are not removed.
+DeusKVM .NET extraction caches. Other pairings are not removed.
 
-Wait for the final **BTRemote removed** message. A built-in Windows process
+Wait for the final **DeusKVM removed** message. A built-in Windows process
 finishes deleting the EXE after it exits; no helper script is left on disk.
 The downloaded EXE/ZIP remain yours to delete. Windows execution/security history
 is not erased, and the Mac's app settings/allow list are not modified remotely.
@@ -146,9 +146,10 @@ app and verify that switching and clipboard sharing work again.
   quiet login entry, reopening the same tray, and complete removal without a
   saved device. These native Windows checks were prepared but not run locally.
 
-Native pairing, login startup, removal of an actual pairing, UI layout and cursor
-placement still require the manual checks above. Successful compilation and
-policy tests are not substitutes for those checks.
+Amadeus subsequently confirmed in-app pairing, login startup, cleanup after its
+fix, hotkey/button cursor centering, disabled/connection icon states, and the
+Mac header scrolling appearance. Keep the checks above for regression testing.
+The DeusKVM rename still needs a native update/appearance check.
 
 Implementation references:
 [Windows pairing](https://learn.microsoft.com/en-us/windows/apps/develop/devices-sensors/pair-devices),

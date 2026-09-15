@@ -7,11 +7,11 @@ when the tray window is closed. Keep the existing Bluetooth pairing.
 
 ## Morning test
 
-1. Extract `.build/windows/BTRemote-Companion-win-x64.zip` on Windows and open
-   `BTRemote.Companion.exe`. Its existing update flow replaces the service and
+1. Extract `.build/windows/DeusKVM-Companion-win-x64.zip` on Windows and open
+   `DeusKVM.Companion.exe`. Its existing update flow replaces the service and
    desktop worker and preserves settings. No separate stop/start script is needed.
 2. Quit the running Mac app and reopen
-   `.build/DerivedData/Build/Products/Debug/BTRemote.app` from this checkout.
+   `.build/DerivedData/Build/Products/Debug/DeusKVM.app` from this checkout.
 3. Copy a sentence on the Mac, cross to Windows and paste into Notepad. Copy a
    different sentence in Notepad, return to the Mac and paste into a text editor.
 4. Repeat with emoji, accented characters, multiple lines and approximately
@@ -57,7 +57,7 @@ unit tests do not establish live integration behavior.
 - Known private, transient and generated clipboard markers are inspected before
   reading text. This is metadata filtering, not content classification:
   **unmarked password text cannot be distinguished from ordinary text**.
-- BTRemote does not log or persist clipboard contents. Windows imports also
+- DeusKVM does not log or persist clipboard contents. Windows imports also
   opt out of cloud clipboard upload. The OS and other installed clipboard tools
   still govern their own history behavior.
 

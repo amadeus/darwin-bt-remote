@@ -7,7 +7,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bluetooth Remote"
+            "value" : "DeusKVM"
           }
         }
       }
@@ -19,7 +19,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Bluetooth Remote"
+            "value" : "DeusKVM"
           }
         }
       }
@@ -30,7 +30,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bluetooth Remote uses Bluetooth to act as a wireless keyboard, mouse, and media remote for your computer, TV, or other devices."
+            "value" : "DeusKVM uses Bluetooth to act as a wireless keyboard, mouse, and media remote for your computer, TV, or other devices."
           }
         }
       }

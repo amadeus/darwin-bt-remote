@@ -24,10 +24,10 @@ struct SettingsView: View {
     private var form: some View {
         Form {
             Section {
-                Button(coordinator.isEnabled ? "Disable BTRemote" : "Enable BTRemote") {
+                Button(coordinator.isEnabled ? "Disable DeusKVM" : "Enable DeusKVM") {
                     coordinator.setEnabled(!coordinator.isEnabled)
                 }
-                Toggle("Launch BTRemote at login", isOn: Binding(
+                Toggle("Launch DeusKVM at login", isOn: Binding(
                     get: { login.enabled }, set: { value in Task { await login.setEnabled(value) } }
                 ))
                 .disabled(login.busy)
@@ -36,7 +36,7 @@ struct SettingsView: View {
                 }
             } footer: {
                 Text(coordinator
-                    .isEnabled ? "BTRemote is enabled." : "Disabled. Advertising, input forwarding and clipboard sharing are paused.")
+                    .isEnabled ? "DeusKVM is enabled." : "Disabled. Advertising, input forwarding and clipboard sharing are paused.")
             }
             Section {
                 Toggle("Share text clipboard with Windows", isOn: $clipboardEnabled)

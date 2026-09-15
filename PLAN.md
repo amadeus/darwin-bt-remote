@@ -1,4 +1,4 @@
-# BTRemote → Synergy-style KVM: plan
+# DeusKVM: implementation plan
 
 Goal: keep the Mac as a Bluetooth LE HID keyboard/mouse for the Windows PC, but
 make it behave like Across / Deskflow / Universal Control: push the Mac cursor
@@ -848,6 +848,12 @@ M3), and the way back is the toggle hotkey or an automatic release. Rule 8 in
 
 ### M5 — Feel and polish
 
+- **Manual validation update (2026-09-14):** Amadeus confirmed the Mac header
+  scrolling appearance and the remaining polish checks: cleanup after the fix,
+  launch-at-login, hotkey/button cursor centering, and disabled/connection icon
+  states. These checks are complete; the implementation-time deferrals below
+  are historical. Documentation and the DeusKVM rename are now implemented;
+  the rename upgrade still needs native confirmation.
 - **Current implementation (2026-09-14):** explicit-switch centering, in-app
   Windows pairing, complete Windows removal, Windows tray startup, optional Mac
   login startup and the Mac enable/disable control are implemented. Builds and
@@ -872,11 +878,13 @@ M3), and the way back is the toggle hotkey or an automatic release. Rule 8 in
   in the companion → allow input on the Mac → pick edges), launch at login (`SMAppService`, opt-in), companion
   tray states, Windows tray auto-launch after user login (deferred to final
   polish; independent of boot-started service), README rewrite.
-- App naming: revisit the BTRemote name during the polish pass. No replacement
-  name has been chosen; remind the user and ask them to pick one when this item
-  is reached, before renaming. Once decided, review Mac/Windows app and tray
-  labels, icons, distribution filenames and documentation, plus migration needs
-  for installed services, startup entries, saved settings and OS permissions.
+- App naming: Amadeus chose **DeusKVM** on 2026-09-14. Mac/Windows labels,
+  permission text, device-information strings, EXE/app/archive filenames, Start
+  menu shortcut, service display name and documentation use the new name. Keep
+  existing icons, internal bundle/service/protocol identities, preference keys
+  and installed Windows paths so upgrades preserve configuration and pairing.
+  The updater replaces the old Start menu shortcut; removal handles both names.
+  Native appearance/update validation of the rename remains for Amadeus.
 - Explicit **Switch to PC** actions, whether invoked by hotkey or any button/
   menu action, always place the pointer at the center of the selected Windows
   display. Edge crossings continue to use proportional placement on the entering
@@ -1432,6 +1440,25 @@ pre-login desktop-worker mechanics remain engineering gates to verify on Windows
 
 ### M5 implementation details — 2026-09-14
 
+- Validation for the rename: signed Mac build and 68 unit tests pass; Windows
+  build and 85 core tests pass; all five disposable-file cleanup tests, the
+  PowerShell startup-query checks, SwiftFormat and strict SwiftLint pass. The
+  renamed Windows ZIP and Mac signature/product metadata are verified. Full
+  native Windows lifecycle validation requires a new CI run after pushing.
+- Renamed the product to DeusKVM and rewrote the root README around the current
+  Mac/Windows setup, edge switching, clipboard, startup, update and removal flow.
+  Source project names and installed identities stay compatible with BTRemote.
+- PR #1's two Windows jobs failed in the lifecycle harness's clean-machine
+  check: Get-ItemPropertyValue throws for a missing Run value under PowerShell
+  5.1 even with SilentlyContinue. Read the key's property collection instead,
+  preserving errors for actual access failures. The same correction applies to
+  disabled-startup, update-preservation and removal assertions. The Windows
+  lifecycle test also checks service/shortcut branding migration.
+
+- Mac header scrolling appearance is complete and user-confirmed. Restoring
+  the form viewport to its native pane bounds allows content to scroll beneath
+  the header with the native progressive blur. Side and bottom content spacing
+  now uses the native 20-point inset.
 - Added capability-gated ENTER_CENTER (0x17, switchId u8 + edge u8). Explicit
   hotkey/button entry centers the selected Windows monitor in physical pixels;
   edge entry remains proportional, and RESUME still avoids repositioning.

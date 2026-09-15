@@ -26,6 +26,7 @@ platform :mac do
       destination: "generic/platform=macOS",
       export_method: "app-store",
       output_directory: "build",
+      output_name: "DeusKVM.pkg",
       installer_cert_name: "3rd Party Mac Developer Installer",
       export_options: { provisioningProfiles: { APP_ID => profile } }
     )

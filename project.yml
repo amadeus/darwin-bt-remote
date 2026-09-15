@@ -37,6 +37,7 @@ targets:
       - BTRemote/Resources/service_uuids.json
     settings:
       base:
+        PRODUCT_NAME: DeusKVM
         PRODUCT_BUNDLE_IDENTIFIER: io.github.jqssun.btremote
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: BTRemote/Info.plist

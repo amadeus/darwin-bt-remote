@@ -39,7 +39,7 @@ internal static class ServiceInstaller
         {
             try { acquired = installation.WaitOne(0); }
             catch (AbandonedMutexException) { acquired = true; }
-            if (!acquired) throw new InvalidOperationException("Another BTRemote installation is already running.");
+            if (!acquired) throw new InvalidOperationException("Another DeusKVM installation is already running.");
             InstallCore();
         }
         finally { if (acquired) installation.ReleaseMutex(); }
@@ -47,9 +47,9 @@ internal static class ServiceInstaller
 
     private static void InstallCore()
     {
-        if (File.Exists(Paths.RemovalMarker)) throw new InvalidOperationException("Finish the pending removal before reinstalling BTRemote.");
+        if (File.Exists(Paths.RemovalMarker)) throw new InvalidOperationException("Finish the pending removal before reinstalling DeusKVM.");
         if (!IsInstalledLocation && File.Exists(Path.ChangeExtension(Environment.ProcessPath!, ".dll")))
-            throw new InvalidOperationException("Install using the published, self-contained BTRemote.Companion.exe.");
+            throw new InvalidOperationException("Install using the published, self-contained DeusKVM.Companion.exe.");
         ProtectDirectory(Paths.InstallDirectory);
         ProtectDirectory(Paths.DataDirectory);
         using var existing = FindService();
@@ -91,9 +91,9 @@ internal static class ServiceInstaller
             }
             var imagePath = $"\"{Paths.InstalledExe}\" --service";
             if (existing is null)
-                ServiceCommands.RunSc("create", Paths.ServiceName, "binPath=", imagePath, "start=", "auto", "obj=", "LocalSystem", "DisplayName=", "BTRemote Companion");
+                ServiceCommands.RunSc("create", Paths.ServiceName, "binPath=", imagePath, "start=", "auto", "obj=", "LocalSystem", "DisplayName=", "DeusKVM Companion");
             else
-                ServiceCommands.RunSc("config", Paths.ServiceName, "binPath=", imagePath, "obj=", "LocalSystem");
+                ServiceCommands.RunSc("config", Paths.ServiceName, "binPath=", imagePath, "obj=", "LocalSystem", "DisplayName=", "DeusKVM Companion");
             ServiceCommands.RunSc("description", Paths.ServiceName, "Maintains the paired Mac Bluetooth connection independently of user login.");
             ServiceCommands.RunSc("failure", Paths.ServiceName, "reset=", "86400", "actions=", "restart/5000/restart/15000/restart/60000");
             ServiceCommands.RunSc("failureflag", Paths.ServiceName, "0");
@@ -136,6 +136,7 @@ internal static class ServiceInstaller
         // Only register --tray after the new executable has successfully installed.
         // A rollback may restore an older build that does not understand that flag.
         TrayStartup.InstallDefault();
+        File.Delete(Paths.LegacyShortcut);
     }
 
     internal static void CloseInstalledProcesses()
@@ -207,13 +208,13 @@ internal sealed class SetupForm : Form
 
     public SetupForm()
     {
-        Text = "BTRemote Companion";
+        Text = "DeusKVM Companion";
         AutoScaleMode = AutoScaleMode.Dpi;
         ClientSize = new Size(440, 110);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         StartPosition = FormStartPosition.CenterScreen;
         ControlBox = false;
-        status.Text = "Installing or updating BTRemote Companion…\nApprove the Windows administrator prompt to continue.";
+        status.Text = "Installing or updating DeusKVM Companion…\nApprove the Windows administrator prompt to continue.";
         Controls.Add(status);
         Shown += async (_, _) =>
         {

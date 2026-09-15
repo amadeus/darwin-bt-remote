@@ -38,7 +38,7 @@ internal sealed class Removal(Action<string> progress, bool showResult) : IRemov
         selected = JsonFiles.Read<CompanionSettings>(Paths.Settings);
         selected?.Validate();
         if (Directory.Exists(Paths.InstallDirectory)) File.WriteAllText(Paths.RemovalMarker, "Removal requested");
-        progress("Stopping BTRemote and closing its workers and tray…");
+        progress("Stopping DeusKVM and closing its workers and tray…");
         await Task.Run(() =>
         {
             using (var service = ServiceInstaller.FindService())
@@ -67,6 +67,7 @@ internal sealed class Removal(Action<string> progress, bool showResult) : IRemov
         using (var sources = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\EventLog\Application", true))
             sources?.DeleteSubKeyTree(Paths.ServiceName, false);
         File.Delete(Paths.Shortcut);
+        File.Delete(Paths.LegacyShortcut);
         await Task.Run(() =>
         {
             var service = ServiceInstaller.FindService();
@@ -104,15 +105,22 @@ internal sealed class Removal(Action<string> progress, bool showResult) : IRemov
     }
     private static IEnumerable<string> CachePaths()
     {
-        yield return Path.Combine(Path.GetTempPath(), ".net", "BTRemote.Companion");
-        yield return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Temp", ".net", "BTRemote.Companion");
+        // The downloaded EXE has the new name; the installed EXE retains its
+        // original path for existing services. Clean caches from either host.
+        foreach (var executable in new[] { "DeusKVM.Companion", "BTRemote.Companion" })
+            foreach (var path in CachePaths(executable)) yield return path;
+    }
+    private static IEnumerable<string> CachePaths(string executable)
+    {
+        yield return Path.Combine(Path.GetTempPath(), ".net", executable);
+        yield return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Temp", ".net", executable);
         using var profiles = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList");
         if (profiles is null) yield break;
         foreach (var name in profiles.GetSubKeyNames())
         {
             using var profile = profiles.OpenSubKey(name);
             if (profile?.GetValue("ProfileImagePath") is string root && Path.IsPathFullyQualified(root))
-                yield return Path.Combine(root, "AppData", "Local", "Temp", ".net", "BTRemote.Companion");
+                yield return Path.Combine(root, "AppData", "Local", "Temp", ".net", executable);
         }
     }
 }
@@ -123,7 +131,7 @@ internal sealed class RemovalForm : Form
     public bool Succeeded { get; private set; }
     public RemovalForm(bool showResult = true)
     {
-        Text = "Removing BTRemote"; ClientSize = new Size(480, 140); ControlBox = false;
+        Text = "Removing DeusKVM"; ClientSize = new Size(480, 140); ControlBox = false;
         AutoScaleMode = AutoScaleMode.Dpi; StartPosition = FormStartPosition.CenterScreen;
         Controls.Add(status);
         Shown += async (_, _) =>

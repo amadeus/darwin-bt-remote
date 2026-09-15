@@ -1,21 +1,7 @@
-Remote is a fully open-source universal serverless Bluetooth HID remote control that can turn any iPhone, iPad, or Mac into a Bluetooth keyboard, trackpad, and media remote.
+DeusKVM shares your Mac's keyboard, mouse, and trackpad with a Windows PC over Bluetooth.
 
-It works using HID over GATT and is compatible with all platforms that accept generic Bluetooth input, including:
-- iOS (and iPadOS)
-- macOS
-- tvOS
-- Linux (and SteamOS)
-- Windows
-- ChromeOS
-- Android (and Android TV, Google TV, and Fire OS)
+Move through a configured display edge to control Windows, then return through its opposite edge. Use a configurable hotkey to switch back locally. Share plain-text clipboard content in both directions, with independent vertical and horizontal scroll direction settings.
 
-Since it presents itself as a regular Bluetooth keyboard and mouse (HID over GATT), nothing needs to be installed on the device you control. Pair once from the host's Bluetooth settings and start typing.
+The Windows companion service manages reconnection, cursor placement, edge return, and clipboard coordination. Input control is available at the Windows login screen; clipboard sharing pauses while locked or signed out. The optional Windows tray app configures the service.
 
-It features:
-- Trackpad: tap to click, two-finger tap for right click, two-finger scroll, dedicated mouse buttons
-- Keyboard: live typing, supports special keys and modifier keys
-- Media: play/pause, rewind, fast-forward, volume controls, mute
-
-It additionally allows you to scan nearby devices with signal strength and manufacturer information.
-
-Remote is under the AGPL-3.0 license at https://github.com/jqssun/darwin-bt-remote
+DeusKVM is based on BTRemote and is available under the AGPL-3.0 license at https://github.com/amadeus/darwin-bt-remote.

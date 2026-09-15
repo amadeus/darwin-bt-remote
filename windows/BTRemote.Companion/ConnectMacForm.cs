@@ -26,7 +26,7 @@ internal sealed class ConnectMacForm : Form
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.Controls.Add(new Label { Text = "Enable BTRemote and open System Settings → Bluetooth on your Mac. Leave it open while choosing and pairing your Mac below.", AutoSize = true, MaximumSize = new Size(490, 0) });
+        layout.Controls.Add(new Label { Text = "Enable DeusKVM and open System Settings → Bluetooth on your Mac. Leave it open while choosing and pairing your Mac below.", AutoSize = true, MaximumSize = new Size(490, 0) });
         layout.Controls.Add(devices); layout.Controls.Add(showAll); layout.Controls.Add(status);
         var buttons = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill };
         buttons.Controls.Add(connect); buttons.Controls.Add(rescan); buttons.Controls.Add(cancel); layout.Controls.Add(buttons);
