@@ -1,6 +1,8 @@
 namespace BTRemote.Companion.Core;
 
-public sealed record MacCandidate(string Id, string Name, string? Address, bool Paired)
+public enum MacTransport { LowEnergy, Classic }
+
+public sealed record MacCandidate(string Id, string Name, string? Address, bool Paired, MacTransport Transport = MacTransport.LowEnergy)
 {
     public override string ToString() => Paired ? $"{Name} (paired)" : Name;
 }
@@ -11,7 +13,9 @@ public static class MacCandidates
         .Where(item => !string.IsNullOrWhiteSpace(item.Name))
         .GroupBy(item => string.IsNullOrWhiteSpace(item.Address) ? item.Id : item.Address.Replace(":", "").Replace("-", ""),
             StringComparer.OrdinalIgnoreCase)
-        .Select(group => group.OrderByDescending(item => item.Paired).ThenBy(item => item.Id, StringComparer.Ordinal).First())
+        .Select(group => group.OrderByDescending(item => item.Paired)
+            .ThenByDescending(item => item.Transport == MacTransport.Classic)
+            .ThenBy(item => item.Id, StringComparer.Ordinal).First())
         .OrderByDescending(item => item.Paired).ThenBy(item => item.Name, StringComparer.OrdinalIgnoreCase).ToArray();
 }
 

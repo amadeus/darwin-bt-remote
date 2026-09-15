@@ -8,8 +8,15 @@ namespace BTRemote.Companion;
 // Pairing runs in the interactive tray's STA. Windows owns PIN/consent dialogs.
 internal sealed class MacPairing(MacCandidate candidate, Action<string> progress, CancellationToken stop) : IMacConnection
 {
-    internal static readonly string[] Properties = ["System.Devices.Aep.IsPaired", "System.Devices.Aep.DeviceAddress"];
-    internal static string Selector => $"({BluetoothLEDevice.GetDeviceSelectorFromPairingState(true)}) OR ({BluetoothLEDevice.GetDeviceSelectorFromPairingState(false)})";
+    internal static readonly string[] Properties = ["System.Devices.Aep.IsPaired", "System.Devices.Aep.DeviceAddress", "System.Devices.Aep.ProtocolId"];
+    private static readonly Guid ClassicProtocol = new("e0cbf06c-cd8b-4647-bb8a-263b43f0f974");
+    internal static string Selector => string.Join(" OR ", new[] {
+        BluetoothDevice.GetDeviceSelectorFromPairingState(true), BluetoothDevice.GetDeviceSelectorFromPairingState(false),
+        BluetoothLEDevice.GetDeviceSelectorFromPairingState(true), BluetoothLEDevice.GetDeviceSelectorFromPairingState(false)
+    }.Select(query => $"({query})"));
+    internal static MacTransport Transport(DeviceInformation info) =>
+        info.Properties.TryGetValue("System.Devices.Aep.ProtocolId", out var protocol) &&
+        Guid.TryParse(protocol?.ToString(), out var id) && id == ClassicProtocol ? MacTransport.Classic : MacTransport.LowEnergy;
     public async Task<bool> Pair()
     {
         stop.ThrowIfCancellationRequested();
@@ -32,17 +39,25 @@ internal sealed class MacPairing(MacCandidate candidate, Action<string> progress
         progress("Checking that this Mac is running BTRemote…");
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(stop);
         timeout.CancelAfter(TimeSpan.FromSeconds(30));
-        using var device = await BluetoothLEDevice.FromIdAsync(candidate.Id).AsTask(timeout.Token)
-            ?? throw new InvalidOperationException("Windows could not open this Bluetooth device.");
-        for (var attempt = 0; attempt < 3; attempt++)
+        using var classic = candidate.Transport == MacTransport.Classic
+            ? await BluetoothDevice.FromIdAsync(candidate.Id).AsTask(timeout.Token) : null;
+        if (candidate.Transport == MacTransport.Classic && classic is null)
+            throw new InvalidOperationException("Windows could not open the paired Mac.");
+        for (var attempt = 0; attempt < 10; attempt++)
         {
+            // A Classic endpoint ID cannot be passed to BluetoothLEDevice.FromIdAsync.
+            // Resolve only this physical Mac's public Bluetooth address, never its name.
+            using var device = classic is null
+                ? await BluetoothLEDevice.FromIdAsync(candidate.Id).AsTask(timeout.Token)
+                : await BluetoothLEDevice.FromBluetoothAddressAsync(classic.BluetoothAddress, BluetoothAddressType.Public).AsTask(timeout.Token);
+            if (device is null) { await Task.Delay(500, timeout.Token); continue; }
             var result = await device.GetGattServicesAsync(BluetoothCacheMode.Uncached).AsTask(timeout.Token);
             try
             {
                 if (result.Status == GattCommunicationStatus.Success &&
                     result.Services.Any(service => service.Uuid == Protocol.Uuid(1)) &&
                     result.Services.Any(service => service.Uuid == new Guid("00001812-0000-1000-8000-00805f9b34fb")))
-                    return new CompanionSettings(candidate.Id, string.IsNullOrWhiteSpace(device.Name) ? candidate.Name : device.Name);
+                    return new CompanionSettings(device.DeviceId, candidate.Name) { PairingDeviceId = candidate.Id };
             }
             finally { foreach (var service in result.Services) service.Dispose(); }
             await Task.Delay(500, timeout.Token);
@@ -61,7 +76,7 @@ internal sealed class MacPairing(MacCandidate candidate, Action<string> progress
         DeviceInformation info;
         try { info = await DeviceInformation.CreateFromIdAsync(id, Properties, DeviceInformationKind.AssociationEndpoint); }
         catch (Exception error) when (error.HResult == unchecked((int)0x80070490)) { return; } // endpoint no longer exists
-        if (!info.Pairing.IsPaired) return;
+        if (info is null || !info.Pairing.IsPaired) return;
         var result = await info.Pairing.UnpairAsync();
         if (result.Status is not (DeviceUnpairingResultStatus.Unpaired or DeviceUnpairingResultStatus.AlreadyUnpaired))
             throw new InvalidOperationException($"Windows could not remove the selected Mac pairing: {result.Status}. Try removal again with Bluetooth turned on.");

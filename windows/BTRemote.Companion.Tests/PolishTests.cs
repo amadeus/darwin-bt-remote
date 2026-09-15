@@ -22,6 +22,15 @@ public sealed class PolishTests
         ]);
         Assert.Equal(new[] { "paired", "other" }, result.Select(item => item.Id));
     }
+    [Fact]
+    public void FreshDualModeMacUsesClassicPairingButAnExistingBondIsPreferred()
+    {
+        var classic = new MacCandidate("classic", "Mac", "AA:BB", false, MacTransport.Classic);
+        var le = new MacCandidate("le", "Mac", "aa-bb", false);
+        Assert.Equal(classic, Assert.Single(MacCandidates.Visible([le, classic])));
+        var paired = le with { Paired = true };
+        Assert.Equal(paired, Assert.Single(MacCandidates.Visible([classic, paired])));
+    }
     [Theory]
     [InlineData(true)] [InlineData(false)]
     public async Task ConnectionVerifiesBeforeSavingAndReusesExistingBonds(bool created)

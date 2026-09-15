@@ -4,12 +4,18 @@ namespace BTRemote.Companion.Core;
 
 public sealed record CompanionSettings(string DeviceId, string DeviceName)
 {
+    // Fresh pairing may use the Mac's Classic endpoint; workers still use its LE endpoint.
+    public string? PairingDeviceId { get; init; }
+
     public void Validate()
     {
         if (string.IsNullOrWhiteSpace(DeviceId) || DeviceId.Length > 4096 || DeviceId.Any(char.IsControl))
             throw new ArgumentException("Choose one paired Bluetooth LE device.");
         if (string.IsNullOrWhiteSpace(DeviceName) || DeviceName.Length > 256 || DeviceName.Any(char.IsControl))
             throw new ArgumentException("The selected device name is invalid.");
+        if (PairingDeviceId is not null && (string.IsNullOrWhiteSpace(PairingDeviceId) ||
+            PairingDeviceId.Length > 4096 || PairingDeviceId.Any(char.IsControl)))
+            throw new ArgumentException("The selected pairing endpoint is invalid.");
     }
 }
 

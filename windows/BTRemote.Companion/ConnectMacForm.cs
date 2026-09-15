@@ -23,7 +23,7 @@ internal sealed class ConnectMacForm : Form
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.Controls.Add(new Label { Text = "Enable BTRemote on your Mac, then choose it below. Other Bluetooth devices may appear.", AutoSize = true, MaximumSize = new Size(490, 0) });
+        layout.Controls.Add(new Label { Text = "Enable BTRemote and open System Settings → Bluetooth on your Mac. Leave it open while choosing and pairing your Mac below.", AutoSize = true, MaximumSize = new Size(490, 0) });
         layout.Controls.Add(devices); layout.Controls.Add(status);
         var buttons = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill };
         buttons.Controls.Add(connect); buttons.Controls.Add(rescan); buttons.Controls.Add(cancel); layout.Controls.Add(buttons);
@@ -53,7 +53,7 @@ internal sealed class ConnectMacForm : Form
             watcher.Added += (sender, info) => Post(sender, () => { found[info.Id] = info; Render(); });
             watcher.Updated += (sender, update) => Post(sender, () => { if (found.TryGetValue(update.Id, out var info)) info.Update(update); Render(); });
             watcher.Removed += (sender, update) => Post(sender, () => { found.Remove(update.Id); Render(); });
-            watcher.EnumerationCompleted += (sender, _) => Post(sender, () => status.Text = "Choose your Mac. If it is missing, check that BTRemote is advertising.");
+            watcher.EnumerationCompleted += (sender, _) => Post(sender, () => status.Text = "Choose your Mac. If missing, keep the Mac’s Bluetooth settings open and choose Search again.");
             watcher.Stopped += (sender, _) => Post(sender, () => status.Text = "Search stopped. Check Windows Bluetooth and choose Search again.");
             watcher.Start();
         }
@@ -63,7 +63,8 @@ internal sealed class ConnectMacForm : Form
     {
         var selected = (devices.SelectedItem as MacCandidate)?.Id;
         var items = MacCandidates.Visible(found.Values.Select(info => new MacCandidate(info.Id, info.Name,
-            info.Properties.TryGetValue("System.Devices.Aep.DeviceAddress", out var address) ? address as string : null, info.Pairing.IsPaired)));
+            info.Properties.TryGetValue("System.Devices.Aep.DeviceAddress", out var address) ? address as string : null,
+            info.Pairing.IsPaired, MacPairing.Transport(info))));
         devices.BeginUpdate(); devices.Items.Clear(); devices.Items.AddRange(items);
         devices.SelectedIndex = Array.FindIndex(items, item => item.Id == selected); devices.EndUpdate();
     }

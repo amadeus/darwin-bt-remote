@@ -17,11 +17,15 @@ independent of the clipboard feature.
 2. Extract the ZIP and open **BTRemote.Companion.exe**. Approve the Windows
    administrator prompt to install or update; the companion window opens
    automatically afterward. No scripts or .NET installation are needed.
-3. On first setup, click **Connect a Mac…**, choose your Mac and approve any
-   Windows/Mac pairing prompts. Keep BTRemote enabled on the Mac; it advertises
+3. For fresh pairing, open **System Settings → Bluetooth** on the Mac and leave
+   it open. Click **Connect a Mac…** in the companion, choose your Mac and approve
+   any Windows/Mac pairing prompts. Keep BTRemote enabled on the Mac; it advertises
    when no allowed PC is ready. The companion verifies BTRemote before saving.
    Allow input for this PC on the Mac if needed. Updates retain your selection;
    use **Change Mac…** to select a different Mac or reuse an existing pairing.
+   The picker searches both regular Bluetooth and Bluetooth LE. After pairing,
+   it verifies the selected Mac's LE services and saves that endpoint for the
+   service; the separate pairing endpoint is retained for complete removal.
 4. Run the matching new Mac build. In **Layout → Windows**, wait for **Windows
    edge return ready**. Choose the PC display there if its primary display is
    not the one next to your Mac. The PC uses the edge opposite the Mac edge.

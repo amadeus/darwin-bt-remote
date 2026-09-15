@@ -82,7 +82,8 @@ Open **Change Mac…** and select the already paired Mac first. It should verify
 BTRemote and save without removing/recreating that bond. Cancel another attempt
 and check that the previous selection still works.
 
-For fresh pairing, use **Connect a Mac…**, choose the Mac and approve Windows'
+For fresh pairing, leave **System Settings → Bluetooth** open on the Mac, then
+use **Connect a Mac…**, choose the Mac and approve Windows'
 pairing prompt and any Mac prompt. Enable BTRemote on the Mac; it must advertise
 when no allowed PC is ready. Other nearby Bluetooth devices may appear in the
 picker, so choose your Mac. The app verifies the HID and BTRemote services before
@@ -94,6 +95,14 @@ created by that failed attempt is rolled back; an existing bond is not removed.
 Rollback failure is reported explicitly. If cancellation occurs during a Windows
 pairing prompt, finish/dismiss that prompt so the attempt can settle safely.
 The Mac's actual first-pair behavior still needs this hardware test.
+
+Discovery correction (September 14): Amadeus confirmed the Mac was absent in
+both lists until Mac Bluetooth settings were opened, then visible only in
+Windows Settings. The original picker only queried LE endpoints. It now scans
+regular Bluetooth as well, pairs the chosen endpoint and resolves that Mac's
+public Bluetooth address to a verified LE endpoint for the service. It does not
+match devices by name. The new path builds and passes 83 core tests; hardware
+pairing and subsequent cleanup still need confirmation.
 
 ### Complete removal — test last
 

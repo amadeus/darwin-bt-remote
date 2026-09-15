@@ -56,6 +56,8 @@ internal sealed class Removal(Action<string> progress, bool showResult) : IRemov
     {
         if (selected is null) return;
         progress($"Removing the Windows pairing for {selected.DeviceName}…");
+        if (selected.PairingDeviceId is not null && selected.PairingDeviceId != selected.DeviceId)
+            await MacPairing.Unpair(selected.PairingDeviceId);
         await MacPairing.Unpair(selected.DeviceId);
     }
     public async Task Unregister()
