@@ -10,10 +10,20 @@ $data = Join-Path $env:ProgramData 'BTRemote'
 $runKey = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run'
 $runName = 'BTRemoteCompanion'
 $shortcut = Join-Path ([Environment]::GetFolderPath('CommonPrograms')) 'BTRemote Companion.lnk'
+function Get-TrayStartupCommand {
+    # Get-ItemPropertyValue throws a terminating error for an absent value in
+    # Windows PowerShell 5.1, even with -ErrorAction SilentlyContinue. Read the
+    # key's properties instead; missing startup registration is expected here.
+    if (-not (Test-Path -LiteralPath $runKey)) { return $null }
+    $properties = Get-ItemProperty -LiteralPath $runKey
+    $property = $properties.PSObject.Properties[$runName]
+    if ($null -ne $property) { return $property.Value }
+    return $null
+}
 if ((Get-Service BTRemoteCompanion -ErrorAction SilentlyContinue) -or
     (Test-Path -LiteralPath $install) -or (Test-Path -LiteralPath $data) -or
     (Test-Path -LiteralPath $shortcut) -or
-    (Get-ItemPropertyValue -LiteralPath $runKey -Name $runName -ErrorAction SilentlyContinue)) {
+    ($null -ne (Get-TrayStartupCommand))) {
     throw 'This test requires a clean machine without an existing BTRemote installation.'
 }
 function Start-CompanionProcess {
@@ -78,9 +88,9 @@ try {
     Invoke-Companion $source @('--install')
     Assert-Service 'Running' 'Automatic'
     if (-not (Test-Path -LiteralPath $shortcut)) { throw 'Missing Start menu shortcut.' }
-    if ((Get-ItemPropertyValue -LiteralPath $runKey -Name $runName) -ne ('"' + $binary + '" --tray')) { throw 'Missing tray startup registration.' }
+    if ((Get-TrayStartupCommand) -ne ('"' + $binary + '" --tray')) { throw 'Missing tray startup registration.' }
     Invoke-Companion $binary @('--tray-startup', 'off')
-    if (Get-ItemPropertyValue -LiteralPath $runKey -Name $runName -ErrorAction SilentlyContinue) { throw 'Tray startup was not disabled.' }
+    if ($null -ne (Get-TrayStartupCommand)) { throw 'Tray startup was not disabled.' }
     foreach ($directory in @($install, $data)) {
         $acl = Get-Acl -LiteralPath $directory
         if (-not $acl.AreAccessRulesProtected) { throw "Unprotected directory: $directory" }
@@ -108,7 +118,7 @@ try {
         if (-not $tray.WaitForExit(10000)) { throw 'Update did not close the previous tray.' }
     } finally { $tray.Dispose() }
     Assert-Service 'Stopped' 'Manual'
-    if (Get-ItemPropertyValue -LiteralPath $runKey -Name $runName -ErrorAction SilentlyContinue) { throw 'Update re-enabled tray startup.' }
+    if ($null -ne (Get-TrayStartupCommand)) { throw 'Update re-enabled tray startup.' }
     if ((Get-FileHash -LiteralPath $settings).Hash -ne $before) { throw 'Update changed the selected Mac.' }
     if ((Get-FileHash -LiteralPath $binary).Hash -ne (Get-FileHash -LiteralPath $source).Hash) { throw 'Wrong installed EXE.' }
     Remove-Item -LiteralPath $settings
@@ -153,7 +163,7 @@ try {
     }
     if (Get-Service BTRemoteCompanion -ErrorAction SilentlyContinue) { throw 'Removal left the service registered.' }
     if (Test-Path -LiteralPath $shortcut) { throw 'Removal left the shortcut.' }
-    if (Get-ItemPropertyValue -LiteralPath $runKey -Name $runName -ErrorAction SilentlyContinue) { throw 'Removal left tray startup enabled.' }
+    if ($null -ne (Get-TrayStartupCommand)) { throw 'Removal left tray startup enabled.' }
     if (Test-Path -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\BTRemoteCompanion') { throw 'Removal left its event-source registration.' }
     Write-Host 'EXE installation, update, startup, reopening and removal passed.'
 } catch {
@@ -183,7 +193,7 @@ try {
         finally { $process.Dispose() }
     }
     try {
-        Remove-ItemProperty -LiteralPath $runKey -Name $runName -ErrorAction SilentlyContinue
+        if ($null -ne (Get-TrayStartupCommand)) { Remove-ItemProperty -LiteralPath $runKey -Name $runName }
         $eventSource = 'HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\BTRemoteCompanion'
         if (Test-Path -LiteralPath $eventSource) { Remove-Item -LiteralPath $eventSource -Recurse -Force }
     } catch { $cleanupErrors.Add($_.ToString()) }
