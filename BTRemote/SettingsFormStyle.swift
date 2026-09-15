@@ -14,7 +14,8 @@ extension View {
                 .padding(.horizontal, -10)
                 .padding(.bottom, -10)
                 .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
-                .clipped()
+            // Let the native scroll view extend beneath the translucent titlebar.
+            // An outer clip cuts it off at the content safe-area edge instead.
         } else {
             formStyle(.grouped)
         }
