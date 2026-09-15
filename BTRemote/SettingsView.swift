@@ -62,8 +62,10 @@ struct SettingsView: View {
             }
             Section(header: Text(L10n.Settings.advanced)) {
                 Toggle(L10n.Settings.developerMode, isOn: $developerMode)
+                Button(role: .destructive) { showReset = true } label: {
+                    Label(L10n.Settings.reset, systemImage: "trash")
+                }
             }
-            resetSection
         }
         .onAppear { login.refresh() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in login.refresh() }
@@ -75,14 +77,6 @@ struct SettingsView: View {
         .confirmationDialog(L10n.Settings.resetConfirm, isPresented: $showReset, titleVisibility: .visible) {
             Button(L10n.Settings.reset, role: .destructive) {
                 Task { if await login.setEnabled(false) { _resetAll() } }
-            }
-        }
-    }
-
-    private var resetSection: some View {
-        Section {
-            Button(role: .destructive) { showReset = true } label: {
-                Label(L10n.Settings.reset, systemImage: "trash")
             }
         }
     }
